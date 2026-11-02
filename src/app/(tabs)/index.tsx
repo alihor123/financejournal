@@ -1,9 +1,19 @@
-import { Filter, Pencil, Plus, Trash } from '@/assets/icons'
+import { Filter, Plus } from '@/assets/icons'
+import { OperationCard, type Operation } from '@/components/OperationCard'
 import { Image } from 'expo-image'
 import { router } from 'expo-router'
 import { useStyles } from '@/hooks/useStyles'
-import { Pressable, Text, View } from 'react-native'
+import { FlatList, Pressable, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+
+const operations: Operation[] = [
+  { id: '1', type: 'expense', amount: 125000, category: 'Продукты', date: '2026-11-02', description: 'Покупки на неделю' },
+  { id: '2', type: 'expense', amount: 35000, category: 'Транспорт', date: '2026-11-02', description: 'Поездка на такси' },
+  { id: '3', type: 'income', amount: 4500000, category: 'Зарплата', date: '2026-11-01', description: 'Зарплата за октябрь' },
+  { id: '4', type: 'expense', amount: 90000, category: 'Подписки', date: '2026-11-01', description: 'Музыка и кино' },
+  { id: '5', type: 'expense', amount: 600000, category: 'Жильё', date: '2026-10-31', description: 'Коммунальные платежи' },
+  { id: '6', type: 'expense', amount: 400000, category: 'Развлечения', date: '2026-10-30', description: 'Выходные с друзьями' }
+]
 
 export default function Index() {
   const styles = useStyles((colors) => ({
@@ -72,70 +82,19 @@ export default function Index() {
       color: colors.text
     },
     operations: {
-      gap: 12
+      flex: 1
+    },
+    operationsHeader: {
+      gap: 20
+    },
+    operationsContent: {
+      gap: 12,
+      paddingBottom: 80
     },
     sectionTitle: {
       fontSize: 18,
       fontWeight: '700',
       color: colors.text
-    },
-    operation: {
-      padding: 16,
-      borderRadius: 20,
-      backgroundColor: colors.surfacePressed,
-      gap: 10
-    },
-    operationHeader: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      gap: 12
-    },
-    operationCategory: {
-      flex: 1,
-      fontSize: 16,
-      fontWeight: '600',
-      color: colors.text
-    },
-    operationAmount: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: colors.error
-    },
-    operationDescription: {
-      fontSize: 14,
-      lineHeight: 20,
-      color: colors.textSecondary
-    },
-    operationFooter: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 12
-    },
-    operationDate: {
-      flex: 1,
-      fontSize: 12,
-      color: colors.textSecondary
-    },
-    operationActions: {
-      flexDirection: 'row',
-      gap: 10
-    },
-    operationButton: {
-      width: 36,
-      height: 36,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    operationIcon: {
-      width: 18,
-      height: 18,
-      tintColor: colors.textSecondary
     },
     addButton: {
       position: 'absolute',
@@ -172,43 +131,34 @@ export default function Index() {
             <Image source={Filter} style={styles.filterIcon} tintColor={styles.filterIcon.tintColor} />
           </Pressable>
         </View>
-        <View style={styles.balanceCard}>
-          <View>
-            <Text style={styles.balanceLabel}>Текущий баланс</Text>
-            <Text style={styles.balanceAmount}>32 500 ₽</Text>
-          </View>
-          <View style={styles.balanceTotals}>
-            <View style={styles.balanceTotal}>
-              <Text style={styles.balanceLabel}>Доходы</Text>
-              <Text style={styles.balanceTotalAmount}>45 000 ₽</Text>
-            </View>
-            <View style={styles.balanceTotal}>
-              <Text style={styles.balanceLabel}>Расходы</Text>
-              <Text style={styles.balanceTotalAmount}>12 500 ₽</Text>
-            </View>
-          </View>
-        </View>
-        <View style={styles.operations}>
-          <Text style={styles.sectionTitle}>Последние операции</Text>
-          <View style={styles.operation}>
-            <View style={styles.operationHeader}>
-              <Text style={styles.operationCategory}>Продукты</Text>
-              <Text style={styles.operationAmount}>-1 250 ₽</Text>
-            </View>
-            <Text style={styles.operationDescription}>Покупки на неделю</Text>
-            <View style={styles.operationFooter}>
-              <Text style={styles.operationDate}>2 ноября 2026</Text>
-              <View style={styles.operationActions}>
-                <Pressable style={({ pressed }) => [styles.operationButton, pressed && styles.buttonPressed]}>
-                  <Image source={Pencil} style={styles.operationIcon} tintColor={styles.operationIcon.tintColor} />
-                </Pressable>
-                <Pressable style={({ pressed }) => [styles.operationButton, pressed && styles.buttonPressed]}>
-                  <Image source={Trash} style={styles.operationIcon} tintColor={styles.operationIcon.tintColor} />
-                </Pressable>
+        <FlatList
+          data={operations}
+          keyExtractor={item => item.id}
+          style={styles.operations}
+          contentContainerStyle={styles.operationsContent}
+          ListHeaderComponent={
+            <View style={styles.operationsHeader}>
+              <View style={styles.balanceCard}>
+                <View>
+                  <Text style={styles.balanceLabel}>Текущий баланс</Text>
+                  <Text style={styles.balanceAmount}>32 500 ₽</Text>
+                </View>
+                <View style={styles.balanceTotals}>
+                  <View style={styles.balanceTotal}>
+                    <Text style={styles.balanceLabel}>Доходы</Text>
+                    <Text style={styles.balanceTotalAmount}>45 000 ₽</Text>
+                  </View>
+                  <View style={styles.balanceTotal}>
+                    <Text style={styles.balanceLabel}>Расходы</Text>
+                    <Text style={styles.balanceTotalAmount}>12 500 ₽</Text>
+                  </View>
+                </View>
               </View>
+              <Text style={styles.sectionTitle}>Последние операции</Text>
             </View>
-          </View>
-        </View>
+          }
+          renderItem={({ item }) => <OperationCard operation={item} />}
+        />
         <Pressable style={({ pressed }) => [styles.addButton, pressed && styles.buttonPressed]}>
           <Image source={Plus} style={styles.addIcon} tintColor={styles.addIcon.tintColor} />
         </Pressable>

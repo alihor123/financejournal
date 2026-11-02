@@ -5,6 +5,7 @@ export const Colors = {
     text: '#1E293B',
     border: '#E8EDF4',
     error: '#D70015',
+    income: '#198754',
 
     surface: '#FFFFFF',
     onSurface: '#1E293B',
@@ -26,6 +27,7 @@ export const Colors = {
     text: '#F1F5F9',
     border: '#2B3749',
     error: '#FF453A',
+    income: '#4ADE80',
 
     surface: '#182231',
     onSurface: '#F1F5F9',
