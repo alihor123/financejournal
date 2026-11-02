@@ -1,5 +1,5 @@
 import { ArrowDown, Close } from '@/assets/icons'
-import { showMessage } from '@/helpers'
+import { dateToString, showMessage } from '@/helpers'
 import { useStyles } from '@/hooks/useStyles'
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import { BlurView } from 'expo-blur'
@@ -9,7 +9,7 @@ import { Dropdown } from 'react-native-element-dropdown'
 import { Modal, Platform, Pressable, ScrollView, Text, TextInput, View, type ViewInstance } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-type OperationForm = {
+export type OperationForm = {
   type: 'income' | 'expense' | 'adjustment'
   category: string
   amount: string
@@ -32,11 +32,13 @@ const categories = [
 
 type OperationModalProps = {
   modalOpen: boolean
+  balance: number
+  onSave: (form: OperationForm) => void
   blurTarget: RefObject<ViewInstance | null>
   onClose: () => void
 }
 
-export default function OperationModal({ modalOpen, blurTarget, onClose }: OperationModalProps) {
+export default function OperationModal({ modalOpen, balance, blurTarget, onSave, onClose }: OperationModalProps) {
   const styles = useStyles((colors) => ({
     container: {
       flex: 1
@@ -237,6 +239,21 @@ export default function OperationModal({ modalOpen, blurTarget, onClose }: Opera
     setForm(prev => ({ ...prev, ...data }))
   }
 
+  //Выбор типа операции и подстановка текущего баланса
+  function changeType(type: OperationForm['type']) {
+    if (type === form.type) return
+
+    if (type === 'adjustment') {
+      changeForm({ type, amount: String(balance / 100) })
+    }
+    else if (form.type === 'adjustment') {
+      changeForm({ type, amount: '' })
+    }
+    else {
+      changeForm({ type })
+    }
+  }
+
   //Ввод суммы с одним разделителем без пробелов
   function changeAmount(amount: string) {
     const value = amount.replace(/\s/g, '')
@@ -255,7 +272,7 @@ export default function OperationModal({ modalOpen, blurTarget, onClose }: Opera
       return false
     }
 
-    const amount = Number(value)
+    const amount = Math.round((Number(value) + Number.EPSILON) * 100)
 
     if (form.type !== 'adjustment' && amount === 0) {
       showMessage('Сумма дохода или расхода должна быть больше нуля')
@@ -269,6 +286,14 @@ export default function OperationModal({ modalOpen, blurTarget, onClose }: Opera
 
     changeForm({ amount: value })
     return true
+  }
+
+  //Сохранение операции после проверки полей
+  function saveOperation() {
+    if (!validateForm()) return
+
+    onSave({ ...form, amount: form.amount.replace(',', '.') })
+    closeModal()
   }
 
   //Закрытие и очистка формы
@@ -321,14 +346,14 @@ export default function OperationModal({ modalOpen, blurTarget, onClose }: Opera
               </View>
               <View style={styles.types}>
                 <View style={styles.typesRow}>
-                  <Pressable onPress={() => changeForm({ type: 'income' })} style={({ pressed }) => [styles.typeButton, styles.typeHalf, form.type === 'income' && styles.typeSelected, pressed && styles.buttonPressed]}>
+                  <Pressable onPress={() => changeType('income')} style={({ pressed }) => [styles.typeButton, styles.typeHalf, form.type === 'income' && styles.typeSelected, pressed && styles.buttonPressed]}>
                     <Text style={[styles.typeText, form.type === 'income' && styles.typeSelectedText]}>Доход</Text>
                   </Pressable>
-                  <Pressable onPress={() => changeForm({ type: 'expense' })} style={({ pressed }) => [styles.typeButton, styles.typeHalf, form.type === 'expense' && styles.typeSelected, pressed && styles.buttonPressed]}>
+                  <Pressable onPress={() => changeType('expense')} style={({ pressed }) => [styles.typeButton, styles.typeHalf, form.type === 'expense' && styles.typeSelected, pressed && styles.buttonPressed]}>
                     <Text style={[styles.typeText, form.type === 'expense' && styles.typeSelectedText]}>Расход</Text>
                   </Pressable>
                 </View>
-                <Pressable onPress={() => changeForm({ type: 'adjustment' })} style={({ pressed }) => [styles.typeButton, form.type === 'adjustment' && styles.typeSelected, pressed && styles.buttonPressed]}>
+                <Pressable onPress={() => changeType('adjustment')} style={({ pressed }) => [styles.typeButton, form.type === 'adjustment' && styles.typeSelected, pressed && styles.buttonPressed]}>
                   <Text style={[styles.typeText, form.type === 'adjustment' && styles.typeSelectedText]}>Изменить баланс</Text>
                 </Pressable>
               </View>
@@ -371,7 +396,7 @@ export default function OperationModal({ modalOpen, blurTarget, onClose }: Opera
                   <input
                     type="date"
                     style={webDateStyle}
-                    value={[form.date.getFullYear(), String(form.date.getMonth() + 1).padStart(2, '0'), String(form.date.getDate()).padStart(2, '0')].join('-')}
+                    value={dateToString(form.date)}
                     onChange={event => {
                       if (event.target.value) changeForm({ date: new Date(`${event.target.value}T00:00:00`) })
                     }}
@@ -406,7 +431,7 @@ export default function OperationModal({ modalOpen, blurTarget, onClose }: Opera
                 <Pressable onPress={closeModal} style={({ pressed }) => [styles.button, styles.cancelButton, pressed && styles.buttonPressed]}>
                   <Text style={[styles.buttonText, styles.cancelText]}>Отмена</Text>
                 </Pressable>
-                <Pressable onPress={validateForm} style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
+                <Pressable onPress={saveOperation} style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
                   <Text style={styles.buttonText}>Сохранить</Text>
                 </Pressable>
               </View>

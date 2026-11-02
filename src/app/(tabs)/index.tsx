@@ -1,7 +1,8 @@
 import { Filter, Plus } from '@/assets/icons'
 import { OperationCard, type Operation } from '@/components/OperationCard'
-import OperationModal from '@/components/OperationModal'
+import OperationModal, { type OperationForm } from '@/components/OperationModal'
 import { BlurTargetView } from 'expo-blur'
+import { randomUUID } from 'expo-crypto'
 import { Image } from 'expo-image'
 import { router } from 'expo-router'
 import { useStyles } from '@/hooks/useStyles'
@@ -9,13 +10,13 @@ import { useRef, useState } from 'react'
 import { FlatList, Pressable, Text, View, type ViewInstance } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-const operations: Operation[] = [
-  { id: '1', type: 'expense', amount: 125000, category: 'Продукты', date: '2026-11-02', description: 'Покупки на неделю' },
-  { id: '2', type: 'expense', amount: 35000, category: 'Транспорт', date: '2026-11-02', description: 'Поездка на такси' },
-  { id: '3', type: 'income', amount: 4500000, category: 'Зарплата', date: '2026-11-01', description: 'Зарплата за октябрь' },
-  { id: '4', type: 'expense', amount: 90000, category: 'Подписки', date: '2026-11-01', description: 'Музыка и кино' },
-  { id: '5', type: 'expense', amount: 600000, category: 'Жильё', date: '2026-10-31', description: 'Коммунальные платежи' },
-  { id: '6', type: 'expense', amount: 400000, category: 'Развлечения', date: '2026-10-30', description: 'Выходные с друзьями' }
+const mockOperations: Operation[] = [
+  { id: '1', type: 'expense', amount: 125000, category: 'Продукты', date: new Date(2026, 10, 2), description: 'Покупки на неделю' },
+  { id: '2', type: 'expense', amount: 35000, category: 'Транспорт', date: new Date(2026, 10, 2), description: 'Поездка на такси' },
+  { id: '3', type: 'income', amount: 4500000, category: 'Зарплата', date: new Date(2026, 10, 1), description: 'Зарплата за октябрь' },
+  { id: '4', type: 'expense', amount: 90000, category: 'Подписки', date: new Date(2026, 10, 1), description: 'Музыка и кино' },
+  { id: '5', type: 'expense', amount: 600000, category: 'Жильё', date: new Date(2026, 9, 31), description: 'Коммунальные платежи' },
+  { id: '6', type: 'expense', amount: 400000, category: 'Развлечения', date: new Date(2026, 9, 30), description: 'Выходные с друзьями' }
 ]
 
 export default function Index() {
@@ -122,8 +123,47 @@ export default function Index() {
     }
   }))
 
+  const [operations, setOperations] = useState<Operation[]>(mockOperations)
   const [modalOpen, setModalOpen] = useState(false)
   const blurTargetRef = useRef<ViewInstance | null>(null)
+
+  const totals = operations.reduce((result, operation) => {
+    if (operation.type === 'income') {
+      result.income += operation.amount
+      result.balance += operation.amount
+    }
+
+    if (operation.type === 'expense') {
+      result.expense += operation.amount
+      result.balance -= operation.amount
+    }
+
+    if (operation.type === 'adjustment') {
+      result.balance += operation.amount
+    }
+
+    return result
+  }, { income: 0, expense: 0, balance: 0 })
+
+  //Добавление операции в журнал
+  function createOperation(data: OperationForm) {
+    const amount = Math.round((Number(data.amount.replace(',', '.')) + Number.EPSILON) * 100)
+    const operation: Operation = {
+      id: randomUUID(),
+      type: data.type,
+      amount,
+      category: data.category,
+      date: data.date,
+      description: data.description.trim()
+    }
+
+    if (data.type === 'adjustment') {
+      operation.amount = amount - totals.balance
+      operation.category = 'Изменение баланса'
+    }
+
+    setOperations(prev => [operation, ...prev])
+  }
 
   return (
     <>
@@ -149,16 +189,16 @@ export default function Index() {
                   <View style={styles.balanceCard}>
                     <View>
                       <Text style={styles.balanceLabel}>Текущий баланс</Text>
-                      <Text style={styles.balanceAmount}>32 500 ₽</Text>
+                      <Text style={styles.balanceAmount}>{(totals.balance / 100).toLocaleString('ru-RU')} ₽</Text>
                     </View>
                     <View style={styles.balanceTotals}>
                       <View style={styles.balanceTotal}>
                         <Text style={styles.balanceLabel}>Доходы</Text>
-                        <Text style={styles.balanceTotalAmount}>45 000 ₽</Text>
+                        <Text style={styles.balanceTotalAmount}>{(totals.income / 100).toLocaleString('ru-RU')} ₽</Text>
                       </View>
                       <View style={styles.balanceTotal}>
                         <Text style={styles.balanceLabel}>Расходы</Text>
-                        <Text style={styles.balanceTotalAmount}>12 500 ₽</Text>
+                        <Text style={styles.balanceTotalAmount}>{(totals.expense / 100).toLocaleString('ru-RU')} ₽</Text>
                       </View>
                     </View>
                   </View>
@@ -173,7 +213,7 @@ export default function Index() {
           </View>
         </SafeAreaView>
       </BlurTargetView>
-      <OperationModal modalOpen={modalOpen} blurTarget={blurTargetRef} onClose={() => setModalOpen(false)} />
+      <OperationModal modalOpen={modalOpen} balance={totals.balance} blurTarget={blurTargetRef} onSave={createOperation} onClose={() => setModalOpen(false)} />
     </>
   )
 }

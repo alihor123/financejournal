@@ -6,15 +6,25 @@ import { Pressable, Text, View } from 'react-native'
 
 export type Operation = {
   id: string
-  type: 'income' | 'expense'
+  type: 'income' | 'expense' | 'adjustment'
   amount: number
   category: string
-  date: string
+  date: Date
   description: string
 }
 
 type OperationCardProps = {
   operation: Operation
+}
+
+//Форматирование суммы операции со знаком
+function amountFormating(operation: Operation) {
+  if (operation.amount === 0) return '0 ₽'
+
+  const sign = operation.type === 'expense' || operation.amount < 0 ? '-' : '+'
+  const amount = (Math.abs(operation.amount) / 100).toLocaleString('ru-RU')
+
+  return `${sign}${amount} ₽`
 }
 
 export function OperationCard({ operation }: OperationCardProps) {
@@ -80,6 +90,9 @@ export function OperationCard({ operation }: OperationCardProps) {
     operationIncome: {
       color: colors.income
     },
+    operationAdjustment: {
+      color: colors.textSecondary
+    },
     buttonPressed: {
       opacity: 0.6
     }
@@ -89,11 +102,11 @@ export function OperationCard({ operation }: OperationCardProps) {
     <View style={styles.operation}>
       <View style={styles.operationHeader}>
         <Text style={styles.operationCategory}>{operation.category}</Text>
-        <Text style={[styles.operationAmount, operation.type === 'income' && styles.operationIncome]}>
-          {operation.type === 'expense' ? '-' : '+'}{(operation.amount / 100).toLocaleString('ru-RU')} ₽
+        <Text style={[styles.operationAmount, operation.type === 'income' && styles.operationIncome, operation.type === 'adjustment' && styles.operationAdjustment]}>
+          {amountFormating(operation)}
         </Text>
       </View>
-      <Text style={styles.operationDescription}>{operation.description}</Text>
+      {operation.description && <Text style={styles.operationDescription}>{operation.description}</Text>}
       <View style={styles.operationFooter}>
         <Text style={styles.operationDate}>{dateFormating(operation.date)}</Text>
         <View style={styles.operationActions}>
