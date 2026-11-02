@@ -257,25 +257,13 @@ export default function OperationModal({ modalOpen, form, balance, blurTarget, o
 
   //Проверка формы перед сохранением
   function validateForm(amount: number) {
-    if (!form.amount) {
+    if (!form.amount || form.amount === '-') {
       showMessage('Введите сумму')
       return false
     }
 
     if (form.type !== 'adjustment' && amount === 0) {
       showMessage('Сумма дохода или расхода должна быть больше нуля')
-      return false
-    }
-
-    let availableBalance = balance
-
-    if (modalOpen?.type === 'edit') {
-      const operation = modalOpen.operation
-      availableBalance += operation.type === 'expense' ? operation.amount : -operation.amount
-    }
-
-    if (form.type === 'expense' && amount > availableBalance) {
-      showMessage('Расход превышает текущий баланс')
       return false
     }
 
@@ -289,7 +277,7 @@ export default function OperationModal({ modalOpen, form, balance, blurTarget, o
 
   //Сохранение новой или отредактированной операции
   function saveOperation() {
-    const amount = Math.round((Number(form.amount.replace(',', '.')) + Number.EPSILON) * 100)
+    const amount = Math.round(Number(form.amount.replace(',', '.')) * 100)
 
     if (!validateForm(amount)) return
 

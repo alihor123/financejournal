@@ -63,7 +63,11 @@ export function OperationFormContent({ styles, form, balance, isCalendarOpen, on
   function changeAmount(amount: string) {
     const value = amount.replace(/\s/g, '')
 
-    if (value === '' || /^\d+([.,]\d*)?$/.test(value)) {
+    const pattern = form.type === 'adjustment'
+      ? /^-?(\d+([.,]\d*)?)?$/
+      : /^(\d+([.,]\d*)?)?$/
+
+    if (pattern.test(value)) {
       onChangeForm({ amount: value })
     }
   }
@@ -89,7 +93,7 @@ export function OperationFormContent({ styles, form, balance, isCalendarOpen, on
           style={styles.input}
           value={form.amount}
           onChangeText={changeAmount}
-          keyboardType="decimal-pad"
+          keyboardType={'decimal-pad'}
           placeholder="0 ₽"
           placeholderTextColor={styles.placeholder.color}
         />
