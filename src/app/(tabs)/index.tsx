@@ -1,4 +1,4 @@
-import { Filter } from '@/assets/icons'
+import { Filter, Plus } from '@/assets/icons'
 import { Image } from 'expo-image'
 import { router } from 'expo-router'
 import { useStyles } from '@/hooks/useStyles'
@@ -71,6 +71,22 @@ export default function Index() {
       fontWeight: '600',
       color: colors.text
     },
+    addButton: {
+      position: 'absolute',
+      right: 24,
+      bottom: 24,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary
+    },
+    addIcon: {
+      width: 28,
+      height: 28,
+      tintColor: colors.onPrimary
+    },
     title: {
       fontSize: 26,
       fontWeight: '700',
@@ -106,6 +122,9 @@ export default function Index() {
             </View>
           </View>
         </View>
+        <Pressable style={({ pressed }) => [styles.addButton, pressed && styles.buttonPressed]}>
+          <Image source={Plus} style={styles.addIcon} tintColor={styles.addIcon.tintColor} />
+        </Pressable>
       </View>
     </SafeAreaView>
   )
