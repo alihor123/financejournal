@@ -1,4 +1,4 @@
-import { Filter, Plus } from '@/assets/icons'
+import { Filter, Pencil, Plus, Trash } from '@/assets/icons'
 import { Image } from 'expo-image'
 import { router } from 'expo-router'
 import { useStyles } from '@/hooks/useStyles'
@@ -71,6 +71,72 @@ export default function Index() {
       fontWeight: '600',
       color: colors.text
     },
+    operations: {
+      gap: 12
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text
+    },
+    operation: {
+      padding: 16,
+      borderRadius: 20,
+      backgroundColor: colors.surfacePressed,
+      gap: 10
+    },
+    operationHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: 12
+    },
+    operationCategory: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text
+    },
+    operationAmount: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.error
+    },
+    operationDescription: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: colors.textSecondary
+    },
+    operationFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12
+    },
+    operationDate: {
+      flex: 1,
+      fontSize: 12,
+      color: colors.textSecondary
+    },
+    operationActions: {
+      flexDirection: 'row',
+      gap: 10
+    },
+    operationButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    operationIcon: {
+      width: 18,
+      height: 18,
+      tintColor: colors.textSecondary
+    },
     addButton: {
       position: 'absolute',
       right: 24,
@@ -119,6 +185,27 @@ export default function Index() {
             <View style={styles.balanceTotal}>
               <Text style={styles.balanceLabel}>Расходы</Text>
               <Text style={styles.balanceTotalAmount}>12 500 ₽</Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.operations}>
+          <Text style={styles.sectionTitle}>Последние операции</Text>
+          <View style={styles.operation}>
+            <View style={styles.operationHeader}>
+              <Text style={styles.operationCategory}>Продукты</Text>
+              <Text style={styles.operationAmount}>-1 250 ₽</Text>
+            </View>
+            <Text style={styles.operationDescription}>Покупки на неделю</Text>
+            <View style={styles.operationFooter}>
+              <Text style={styles.operationDate}>2 ноября 2026</Text>
+              <View style={styles.operationActions}>
+                <Pressable style={({ pressed }) => [styles.operationButton, pressed && styles.buttonPressed]}>
+                  <Image source={Pencil} style={styles.operationIcon} tintColor={styles.operationIcon.tintColor} />
+                </Pressable>
+                <Pressable style={({ pressed }) => [styles.operationButton, pressed && styles.buttonPressed]}>
+                  <Image source={Trash} style={styles.operationIcon} tintColor={styles.operationIcon.tintColor} />
+                </Pressable>
+              </View>
             </View>
           </View>
         </View>
