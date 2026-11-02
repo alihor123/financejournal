@@ -31,6 +31,7 @@ export default function Index() {
       maxWidth: 600,
       alignSelf: 'center',
       padding: 24,
+      paddingBottom: 0,
       gap: 20
     },
     header: {
