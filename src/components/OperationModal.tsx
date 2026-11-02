@@ -279,6 +279,11 @@ export default function OperationModal({ modalOpen, balance, blurTarget, onSave,
       return false
     }
 
+    if (form.type === 'expense' && amount > balance) {
+      showMessage('Расход превышает текущий баланс')
+      return false
+    }
+
     if (form.type !== 'adjustment' && !form.category) {
       showMessage('Выберите категорию')
       return false
