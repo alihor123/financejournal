@@ -16,6 +16,7 @@ export const Colors = {
 
     primary: '#1677FF',
     onPrimary: '#FFFFFF',
+    balanceSurface: '#1677FF14',
     primaryPressed: '#0864E8'
   },
 
@@ -36,6 +37,7 @@ export const Colors = {
 
     primary: '#1677FF',
     onPrimary: '#FFFFFF',
+    balanceSurface: '#1677FF14',
     primaryPressed: '#0864E8'
   }
 }

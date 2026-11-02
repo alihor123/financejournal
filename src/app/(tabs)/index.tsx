@@ -16,7 +16,8 @@ export default function Index() {
       width: '100%',
       maxWidth: 600,
       alignSelf: 'center',
-      padding: 24
+      padding: 24,
+      gap: 20
     },
     header: {
       flexDirection: 'row',
@@ -38,6 +39,38 @@ export default function Index() {
     buttonPressed: {
       opacity: 0.6
     },
+    balanceCard: {
+      padding: 20,
+      borderRadius: 24,
+      backgroundColor: colors.balanceSurface,
+      gap: 20
+    },
+    balanceLabel: {
+      fontSize: 14,
+      color: colors.textSecondary
+    },
+    balanceAmount: {
+      fontSize: 36,
+      lineHeight: 44,
+      fontWeight: '700',
+      color: colors.text
+    },
+    balanceTotals: {
+      flexDirection: 'row',
+      gap: 12
+    },
+    balanceTotal: {
+      flex: 1,
+      padding: 12,
+      borderRadius: 16,
+      backgroundColor: colors.balanceSurface,
+      gap: 6
+    },
+    balanceTotalAmount: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text
+    },
     title: {
       fontSize: 26,
       fontWeight: '700',
@@ -56,6 +89,22 @@ export default function Index() {
           >
             <Image source={Filter} style={styles.filterIcon} tintColor={styles.filterIcon.tintColor} />
           </Pressable>
+        </View>
+        <View style={styles.balanceCard}>
+          <View>
+            <Text style={styles.balanceLabel}>Текущий баланс</Text>
+            <Text style={styles.balanceAmount}>32 500 ₽</Text>
+          </View>
+          <View style={styles.balanceTotals}>
+            <View style={styles.balanceTotal}>
+              <Text style={styles.balanceLabel}>Доходы</Text>
+              <Text style={styles.balanceTotalAmount}>45 000 ₽</Text>
+            </View>
+            <View style={styles.balanceTotal}>
+              <Text style={styles.balanceLabel}>Расходы</Text>
+              <Text style={styles.balanceTotalAmount}>12 500 ₽</Text>
+            </View>
+          </View>
         </View>
       </View>
     </SafeAreaView>
