@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@react-native-community/datetimepicker": "9.2.1",
     "expo": "~58.0.19",
     "expo-blur": "~58.0.5",
     "expo-constants": "~58.0.13",
@@ -14,6 +15,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.1",
+    "react-native-element-dropdown": "^2.12.4",
     "react-native-pager-view": "9.0.7",
     "react-native-safe-area-context": "~5.10.1",
     "react-native-screens": "~4.30.0",

@@ -1,18 +1,40 @@
-import { Close } from '@/assets/icons'
+import { ArrowDown, Close } from '@/assets/icons'
 import { useStyles } from '@/hooks/useStyles'
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import { BlurView } from 'expo-blur'
 import { Image } from 'expo-image'
-import type { RefObject } from 'react'
-import { Modal, Pressable, ScrollView, Text, TextInput, View, type ViewInstance } from 'react-native'
+import { useState, type CSSProperties, type RefObject } from 'react'
+import { Dropdown } from 'react-native-element-dropdown'
+import { Modal, Platform, Pressable, ScrollView, Text, TextInput, View, type ViewInstance } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+type OperationForm = {
+  type: 'income' | 'expense' | 'adjustment'
+  category: string
+  amount: string
+  date: Date
+  description: string
+}
+
+const categories = [
+  { name: 'Продукты' },
+  { name: 'Транспорт' },
+  { name: 'Жильё' },
+  { name: 'Подписки' },
+  { name: 'Развлечения' },
+  { name: 'Здоровье' },
+  { name: 'Зарплата' },
+  { name: 'Подработка' },
+  { name: 'Подарки' },
+  { name: 'Другое' }
+]
+
 type OperationModalProps = {
-  modalOpen: boolean
   blurTarget: RefObject<ViewInstance | null>
   onClose: () => void
 }
 
-export default function OperationModal({ modalOpen, blurTarget, onClose }: OperationModalProps) {
+export default function OperationModal({ blurTarget, onClose }: OperationModalProps) {
   const styles = useStyles((colors) => ({
     container: {
       flex: 1
@@ -120,6 +142,42 @@ export default function OperationModal({ modalOpen, blurTarget, onClose }: Opera
       fontSize: 16,
       color: colors.text
     },
+    dateButton: {
+      height: 46,
+      paddingHorizontal: 14,
+      justifyContent: 'center',
+      borderRadius: 16,
+      backgroundColor: colors.surfacePressed
+    },
+    dateText: {
+      fontSize: 16,
+      color: colors.text
+    },
+    selector: {
+      height: 46,
+      paddingHorizontal: 14,
+      borderRadius: 16,
+      backgroundColor: colors.surfacePressed
+    },
+    categoryList: {
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+      backgroundColor: colors.surface
+    },
+    categoryText: {
+      fontSize: 16,
+      color: colors.text
+    },
+    categorySelected: {
+      backgroundColor: colors.balanceSurface
+    },
+    categoryArrow: {
+      width: 18,
+      height: 18,
+      tintColor: colors.textSecondary
+    },
     placeholder: {
       color: colors.textSecondary
     },
@@ -155,8 +213,45 @@ export default function OperationModal({ modalOpen, blurTarget, onClose }: Opera
     }
   }))
 
+  const webDateStyle: CSSProperties = {
+    ...styles.input,
+    width: '100%',
+    padding: '0 14px',
+    borderWidth: 0,
+    boxSizing: 'border-box'
+  }
+
+  const [form, setForm] = useState<OperationForm>(() => ({
+    type: 'expense',
+    category: '',
+    amount: '',
+    date: new Date(),
+    description: ''
+  }))
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+
+  //Изменение полей формы
+  function changeForm(data: Partial<OperationForm>) {
+    setForm(prev => ({ ...prev, ...data }))
+  }
+
+  //Открытие календаря для выбора даты
+  function openCalendar() {
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: form.date,
+        mode: 'date',
+        display: 'calendar',
+        onValueChange: (_, date) => changeForm({ date })
+      })
+    }
+    else {
+      setIsCalendarOpen(prev => !prev)
+    }
+  }
+
   return (
-    <Modal visible={modalOpen} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.container}>
         <BlurView
           blurTarget={blurTarget}
@@ -168,7 +263,7 @@ export default function OperationModal({ modalOpen, blurTarget, onClose }: Opera
         />
         <SafeAreaView style={styles.wrapper} pointerEvents="box-none">
           <View style={styles.modal}>
-            <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={styles.header}>
                 <Text style={styles.title}>Новая операция</Text>
                 <Pressable onPress={onClose} style={({ pressed }) => [styles.closeButton, pressed && styles.buttonPressed]}>
@@ -177,32 +272,86 @@ export default function OperationModal({ modalOpen, blurTarget, onClose }: Opera
               </View>
               <View style={styles.types}>
                 <View style={styles.typesRow}>
-                  <Pressable style={({ pressed }) => [styles.typeButton, styles.typeHalf, pressed && styles.buttonPressed]}>
-                    <Text style={styles.typeText}>Доход</Text>
+                  <Pressable onPress={() => changeForm({ type: 'income' })} style={({ pressed }) => [styles.typeButton, styles.typeHalf, form.type === 'income' && styles.typeSelected, pressed && styles.buttonPressed]}>
+                    <Text style={[styles.typeText, form.type === 'income' && styles.typeSelectedText]}>Доход</Text>
                   </Pressable>
-                  <Pressable style={({ pressed }) => [styles.typeButton, styles.typeHalf, styles.typeSelected, pressed && styles.buttonPressed]}>
-                    <Text style={[styles.typeText, styles.typeSelectedText]}>Расход</Text>
+                  <Pressable onPress={() => changeForm({ type: 'expense' })} style={({ pressed }) => [styles.typeButton, styles.typeHalf, form.type === 'expense' && styles.typeSelected, pressed && styles.buttonPressed]}>
+                    <Text style={[styles.typeText, form.type === 'expense' && styles.typeSelectedText]}>Расход</Text>
                   </Pressable>
                 </View>
-                <Pressable style={({ pressed }) => [styles.typeButton, pressed && styles.buttonPressed]}>
-                  <Text style={styles.typeText}>Изменить баланс</Text>
+                <Pressable onPress={() => changeForm({ type: 'adjustment' })} style={({ pressed }) => [styles.typeButton, form.type === 'adjustment' && styles.typeSelected, pressed && styles.buttonPressed]}>
+                  <Text style={[styles.typeText, form.type === 'adjustment' && styles.typeSelectedText]}>Изменить баланс</Text>
                 </Pressable>
               </View>
               <View style={styles.field}>
-                <Text style={styles.label}>Сумма</Text>
-                <TextInput style={styles.input} placeholder="0 ₽" placeholderTextColor={styles.placeholder.color} editable={false} />
+                <Text style={styles.label}>{form.type === 'adjustment' ? 'Новый баланс' : 'Сумма'}</Text>
+                <TextInput
+                  style={styles.input}
+                  value={form.amount}
+                  onChangeText={amount => changeForm({ amount })}
+                  keyboardType="decimal-pad"
+                  placeholder="0 ₽"
+                  placeholderTextColor={styles.placeholder.color}
+                />
               </View>
-              <View style={styles.field}>
-                <Text style={styles.label}>Категория</Text>
-                <TextInput style={styles.input} placeholder="Выберите категорию" placeholderTextColor={styles.placeholder.color} editable={false} />
-              </View>
+              {form.type !== 'adjustment' && (
+                <View style={styles.field}>
+                  <Text style={styles.label}>Категория</Text>
+                  <Dropdown
+                    style={styles.selector}
+                    containerStyle={styles.categoryList}
+                    placeholderStyle={styles.placeholder}
+                    selectedTextStyle={styles.categoryText}
+                    itemTextStyle={styles.categoryText}
+                    activeColor={styles.categorySelected.backgroundColor}
+                    data={categories}
+                    labelField="name"
+                    valueField="name"
+                    value={form.category}
+                    placeholder="Выберите категорию"
+                    maxHeight={220}
+                    autoScroll={false}
+                    onChange={item => changeForm({ category: item.name })}
+                    renderRightIcon={() => <Image source={ArrowDown} style={styles.categoryArrow} tintColor={styles.categoryArrow.tintColor} />}
+                  />
+                </View>
+              )}
               <View style={styles.field}>
                 <Text style={styles.label}>Дата</Text>
-                <TextInput style={styles.input} placeholder="ДД.ММ.ГГГГ" placeholderTextColor={styles.placeholder.color} editable={false} />
+                {Platform.OS === 'web' && (
+                  <input
+                    type="date"
+                    style={webDateStyle}
+                    value={[form.date.getFullYear(), String(form.date.getMonth() + 1).padStart(2, '0'), String(form.date.getDate()).padStart(2, '0')].join('-')}
+                    onChange={event => {
+                      if (event.target.value) changeForm({ date: new Date(`${event.target.value}T00:00:00`) })
+                    }}
+                  />
+                )}
+                {Platform.OS !== 'web' && (
+                  <Pressable onPress={openCalendar} style={({ pressed }) => [styles.dateButton, pressed && styles.buttonPressed]}>
+                    <Text style={styles.dateText}>{form.date.toLocaleDateString('ru-RU')}</Text>
+                  </Pressable>
+                )}
+                {Platform.OS === 'ios' && isCalendarOpen && (
+                  <DateTimePicker
+                    value={form.date}
+                    mode="date"
+                    display="inline"
+                    onValueChange={(_, date) => changeForm({ date })}
+                  />
+                )}
               </View>
               <View style={styles.field}>
                 <Text style={styles.label}>Описание</Text>
-                <TextInput style={[styles.input, styles.description]} placeholder="На что потратили или откуда получили" placeholderTextColor={styles.placeholder.color} multiline editable={false} />
+                <TextInput
+                  style={[styles.input, styles.description]}
+                  value={form.description}
+                  onChangeText={description => changeForm({ description })}
+                  placeholder="На что потратили или откуда получили"
+                  placeholderTextColor={styles.placeholder.color}
+                  multiline
+                />
               </View>
               <View style={styles.actions}>
                 <Pressable onPress={onClose} style={({ pressed }) => [styles.button, styles.cancelButton, pressed && styles.buttonPressed]}>
