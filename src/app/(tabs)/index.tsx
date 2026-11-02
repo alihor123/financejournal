@@ -4,7 +4,7 @@ import OperationModal, { type ModalOpen, type OperationForm } from '@/components
 import { BlurTargetView } from 'expo-blur'
 import { randomUUID } from 'expo-crypto'
 import { Image } from 'expo-image'
-import { router } from 'expo-router'
+import Filters from '@/components/Filters'
 import { useStyles } from '@/hooks/useStyles'
 import { useRef, useState } from 'react'
 import { FlatList, Pressable, Text, View, type ViewInstance } from 'react-native'
@@ -30,10 +30,20 @@ export default function Index() {
       gap: 20
     },
     header: {
+      position: 'relative',
+      zIndex: 10,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: 12
+    },
+    filtersBackdrop: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      zIndex: 5
     },
     filterButton: {
       width: 44,
@@ -119,6 +129,7 @@ export default function Index() {
     }
   }))
 
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const [operations, setOperations] = useState<Operation[]>([])
   const [modalOpen, setModalOpen] = useState<ModalOpen>(null)
   const [form, setForm] = useState<OperationForm>(getEmptyForm)
@@ -217,14 +228,16 @@ export default function Index() {
       <BlurTargetView ref={blurTargetRef} style={styles.container}>
         <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
           <View style={styles.content}>
+            {isFiltersOpen && <Pressable style={styles.filtersBackdrop} onPress={() => setIsFiltersOpen(false)} />}
             <View style={styles.header}>
               <Text style={styles.title}>Журнал</Text>
               <Pressable
-                onPress={() => router.push('/filters')}
+                onPress={() => setIsFiltersOpen(prev => !prev)}
                 style={({ pressed }) => [styles.filterButton, pressed && styles.buttonPressed]}
               >
                 <Image source={Filter} style={styles.filterIcon} tintColor={styles.filterIcon.tintColor} />
               </Pressable>
+              {isFiltersOpen && <Filters onClose={() => setIsFiltersOpen(false)} />}
             </View>
             <FlatList
               data={operations}
