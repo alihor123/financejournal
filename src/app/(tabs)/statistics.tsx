@@ -2,7 +2,7 @@ import { useStyles } from '@/hooks/useStyles'
 import { Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-export default function Index() {
+export default function StatisticsScreen() {
   const styles = useStyles((colors) => ({
     container: {
       flex: 1,
@@ -23,9 +23,9 @@ export default function Index() {
   }))
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.content}>
-        <Text style={styles.title}>Финансовый журнал</Text>
+        <Text style={styles.title}>Статистика</Text>
       </View>
     </SafeAreaView>
   )
