@@ -1,4 +1,5 @@
 import { ArrowDown, Close } from '@/assets/icons'
+import { showMessage } from '@/helpers'
 import { useStyles } from '@/hooks/useStyles'
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import { BlurView } from 'expo-blur'
@@ -30,11 +31,12 @@ const categories = [
 ]
 
 type OperationModalProps = {
+  modalOpen: boolean
   blurTarget: RefObject<ViewInstance | null>
   onClose: () => void
 }
 
-export default function OperationModal({ blurTarget, onClose }: OperationModalProps) {
+export default function OperationModal({ modalOpen, blurTarget, onClose }: OperationModalProps) {
   const styles = useStyles((colors) => ({
     container: {
       flex: 1
@@ -235,6 +237,53 @@ export default function OperationModal({ blurTarget, onClose }: OperationModalPr
     setForm(prev => ({ ...prev, ...data }))
   }
 
+  //Ввод суммы с одним разделителем без пробелов
+  function changeAmount(amount: string) {
+    const value = amount.replace(/\s/g, '')
+
+    if (value === '' || /^\d+([.,]\d*)?$/.test(value)) {
+      changeForm({ amount: value })
+    }
+  }
+
+  //Проверка и подготовка формы перед сохранением
+  function validateForm() {
+    const value = form.amount.replace(',', '.')
+
+    if (!value) {
+      showMessage('Введите сумму')
+      return false
+    }
+
+    const amount = Number(value)
+
+    if (form.type !== 'adjustment' && amount === 0) {
+      showMessage('Сумма дохода или расхода должна быть больше нуля')
+      return false
+    }
+
+    if (form.type !== 'adjustment' && !form.category) {
+      showMessage('Выберите категорию')
+      return false
+    }
+
+    changeForm({ amount: value })
+    return true
+  }
+
+  //Закрытие и очистка формы
+  function closeModal() {
+    onClose()
+    setForm({
+      type: 'expense',
+      category: '',
+      amount: '',
+      date: new Date(),
+      description: ''
+    })
+    setIsCalendarOpen(false)
+  }
+
   //Открытие календаря для выбора даты
   function openCalendar() {
     if (Platform.OS === 'android') {
@@ -251,14 +300,14 @@ export default function OperationModal({ blurTarget, onClose }: OperationModalPr
   }
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={modalOpen} transparent animationType="fade" onRequestClose={closeModal}>
       <View style={styles.container}>
         <BlurView
           blurTarget={blurTarget}
           blurMethod="dimezisBlurView"
           intensity={25}
           tint="dark"
-          onTouchEnd={onClose}
+          onTouchEnd={closeModal}
           style={styles.backdrop}
         />
         <SafeAreaView style={styles.wrapper} pointerEvents="box-none">
@@ -266,7 +315,7 @@ export default function OperationModal({ blurTarget, onClose }: OperationModalPr
             <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={styles.header}>
                 <Text style={styles.title}>Новая операция</Text>
-                <Pressable onPress={onClose} style={({ pressed }) => [styles.closeButton, pressed && styles.buttonPressed]}>
+                <Pressable onPress={closeModal} style={({ pressed }) => [styles.closeButton, pressed && styles.buttonPressed]}>
                   <Image source={Close} style={styles.closeIcon} tintColor={styles.closeIcon.tintColor} />
                 </Pressable>
               </View>
@@ -288,7 +337,7 @@ export default function OperationModal({ blurTarget, onClose }: OperationModalPr
                 <TextInput
                   style={styles.input}
                   value={form.amount}
-                  onChangeText={amount => changeForm({ amount })}
+                  onChangeText={changeAmount}
                   keyboardType="decimal-pad"
                   placeholder="0 ₽"
                   placeholderTextColor={styles.placeholder.color}
@@ -354,10 +403,10 @@ export default function OperationModal({ blurTarget, onClose }: OperationModalPr
                 />
               </View>
               <View style={styles.actions}>
-                <Pressable onPress={onClose} style={({ pressed }) => [styles.button, styles.cancelButton, pressed && styles.buttonPressed]}>
+                <Pressable onPress={closeModal} style={({ pressed }) => [styles.button, styles.cancelButton, pressed && styles.buttonPressed]}>
                   <Text style={[styles.buttonText, styles.cancelText]}>Отмена</Text>
                 </Pressable>
-                <Pressable style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
+                <Pressable onPress={validateForm} style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
                   <Text style={styles.buttonText}>Сохранить</Text>
                 </Pressable>
               </View>

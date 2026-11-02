@@ -173,9 +173,7 @@ export default function Index() {
           </View>
         </SafeAreaView>
       </BlurTargetView>
-      {modalOpen && (
-        <OperationModal blurTarget={blurTargetRef} onClose={() => setModalOpen(false)} />
-      )}
+      <OperationModal modalOpen={modalOpen} blurTarget={blurTargetRef} onClose={() => setModalOpen(false)} />
     </>
   )
 }
