@@ -15,6 +15,8 @@ export type Operation = {
 
 type OperationCardProps = {
   operation: Operation
+  onEdit: () => void
+  onDelete: () => void
 }
 
 //Форматирование суммы операции со знаком
@@ -27,7 +29,7 @@ function amountFormating(operation: Operation) {
   return `${sign}${amount} ₽`
 }
 
-export function OperationCard({ operation }: OperationCardProps) {
+export function OperationCard({ operation, onEdit, onDelete }: OperationCardProps) {
   const styles = useStyles((colors) => ({
     operation: {
       padding: 16,
@@ -110,10 +112,10 @@ export function OperationCard({ operation }: OperationCardProps) {
       <View style={styles.operationFooter}>
         <Text style={styles.operationDate}>{dateFormating(operation.date)}</Text>
         <View style={styles.operationActions}>
-          <Pressable style={({ pressed }) => [styles.operationButton, pressed && styles.buttonPressed]}>
+          <Pressable onPress={onEdit} style={({ pressed }) => [styles.operationButton, pressed && styles.buttonPressed]}>
             <Image source={Pencil} style={styles.operationIcon} tintColor={styles.operationIcon.tintColor} />
           </Pressable>
-          <Pressable style={({ pressed }) => [styles.operationButton, pressed && styles.buttonPressed]}>
+          <Pressable onPress={onDelete} style={({ pressed }) => [styles.operationButton, pressed && styles.buttonPressed]}>
             <Image source={Trash} style={styles.operationIcon} tintColor={styles.operationIcon.tintColor} />
           </Pressable>
         </View>

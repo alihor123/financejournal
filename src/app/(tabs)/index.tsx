@@ -1,6 +1,6 @@
 import { Filter, Plus } from '@/assets/icons'
 import { OperationCard, type Operation } from '@/components/OperationCard'
-import OperationModal, { type OperationForm } from '@/components/OperationModal'
+import OperationModal, { type ModalOpen, type OperationForm } from '@/components/OperationModal/index'
 import { BlurTargetView } from 'expo-blur'
 import { randomUUID } from 'expo-crypto'
 import { Image } from 'expo-image'
@@ -10,14 +10,9 @@ import { useRef, useState } from 'react'
 import { FlatList, Pressable, Text, View, type ViewInstance } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-const mockOperations: Operation[] = [
-  { id: '1', type: 'expense', amount: 125000, category: 'Продукты', date: new Date(2026, 10, 2), description: 'Покупки на неделю' },
-  { id: '2', type: 'expense', amount: 35000, category: 'Транспорт', date: new Date(2026, 10, 2), description: 'Поездка на такси' },
-  { id: '3', type: 'income', amount: 4500000, category: 'Зарплата', date: new Date(2026, 10, 1), description: 'Зарплата за октябрь' },
-  { id: '4', type: 'expense', amount: 90000, category: 'Подписки', date: new Date(2026, 10, 1), description: 'Музыка и кино' },
-  { id: '5', type: 'expense', amount: 600000, category: 'Жильё', date: new Date(2026, 9, 31), description: 'Коммунальные платежи' },
-  { id: '6', type: 'expense', amount: 400000, category: 'Развлечения', date: new Date(2026, 9, 30), description: 'Выходные с друзьями' }
-]
+function getEmptyForm(): OperationForm {
+  return { type: 'expense', category: '', amount: '', date: new Date(), description: '' }
+}
 
 export default function Index() {
   const styles = useStyles((colors) => ({
@@ -124,8 +119,9 @@ export default function Index() {
     }
   }))
 
-  const [operations, setOperations] = useState<Operation[]>(mockOperations)
-  const [modalOpen, setModalOpen] = useState(false)
+  const [operations, setOperations] = useState<Operation[]>([])
+  const [modalOpen, setModalOpen] = useState<ModalOpen>(null)
+  const [form, setForm] = useState<OperationForm>(getEmptyForm)
   const blurTargetRef = useRef<ViewInstance | null>(null)
 
   const totals = operations.reduce((result, operation) => {
@@ -146,24 +142,74 @@ export default function Index() {
     return result
   }, { income: 0, expense: 0, balance: 0 })
 
+  //Открытие пустой формы новой операции
+  function openCreateModal() {
+    setForm(getEmptyForm())
+    setModalOpen({ type: 'create' })
+  }
+
+  //Открытие формы с данными выбранной операции
+  function openEditModal(operation: Operation) {
+    setForm({
+      type: operation.type,
+      category: operation.category,
+      amount: String((operation.type === 'adjustment' ? totals.balance : operation.amount) / 100),
+      date: operation.date,
+      description: operation.description
+    })
+    setModalOpen({ type: 'edit', operation })
+  }
+
+  //Открытие подтверждения удаления выбранной операции
+  function openDeleteModal(operation: Operation) {
+    setModalOpen({ type: 'delete', operation })
+  }
+
+  //Изменение полей общей формы
+  function changeForm(data: Partial<OperationForm>) {
+    setForm(prev => ({ ...prev, ...data }))
+  }
+
+  //Закрытие модалки и очистка формы
+  function closeModal() {
+    setModalOpen(null)
+    setForm(getEmptyForm())
+  }
+
   //Добавление операции в журнал
-  function createOperation(data: OperationForm) {
-    const amount = Math.round((Number(data.amount.replace(',', '.')) + Number.EPSILON) * 100)
-    const operation: Operation = {
-      id: randomUUID(),
-      type: data.type,
-      amount,
-      category: data.category,
-      date: data.date,
-      description: data.description.trim()
-    }
+  function createOperation(data: Omit<Operation, 'id'>) {
+    const operation: Operation = { ...data, id: randomUUID() }
 
     if (data.type === 'adjustment') {
-      operation.amount = amount - totals.balance
+      operation.amount = data.amount - totals.balance
       operation.category = 'Изменение баланса'
     }
 
     setOperations(prev => [operation, ...prev])
+  }
+
+  //Сохранение изменений выбранной операции по её ID
+  function editOperation(data: Omit<Operation, 'id'>) {
+    if (modalOpen?.type !== 'edit') return
+
+    const previousOperation = modalOpen.operation
+    const operation: Operation = { ...data, id: previousOperation.id }
+
+    if (data.type === 'adjustment') {
+      const previousAmount = previousOperation.type === 'expense' ? -previousOperation.amount : previousOperation.amount
+      operation.amount = data.amount - (totals.balance - previousAmount)
+      operation.category = 'Изменение баланса'
+    }
+
+    setOperations(prev => prev.map(item => item.id === operation.id ? operation : item))
+  }
+
+  //Удаление выбранной операции из журнала
+  function deleteOperation() {
+    if (modalOpen?.type !== 'delete') return
+
+    const id = modalOpen.operation.id
+    setOperations(prev => prev.filter(operation => operation.id !== id))
   }
 
   return (
@@ -206,15 +252,25 @@ export default function Index() {
                   <Text style={styles.sectionTitle}>Последние операции</Text>
                 </View>
               }
-              renderItem={({ item }) => <OperationCard operation={item} />}
+              renderItem={({ item }) => <OperationCard operation={item} onEdit={() => openEditModal(item)} onDelete={() => openDeleteModal(item)} />}
             />
-            <Pressable onPress={() => setModalOpen(true)} style={({ pressed }) => [styles.addButton, pressed && styles.buttonPressed]}>
+            <Pressable onPress={openCreateModal} style={({ pressed }) => [styles.addButton, pressed && styles.buttonPressed]}>
               <Image source={Plus} style={styles.addIcon} tintColor={styles.addIcon.tintColor} />
             </Pressable>
           </View>
         </SafeAreaView>
       </BlurTargetView>
-      <OperationModal modalOpen={modalOpen} balance={totals.balance} blurTarget={blurTargetRef} onSave={createOperation} onClose={() => setModalOpen(false)} />
+      <OperationModal
+        modalOpen={modalOpen}
+        form={form}
+        balance={totals.balance}
+        blurTarget={blurTargetRef}
+        onChangeForm={changeForm}
+        onCreate={createOperation}
+        onEdit={editOperation}
+        onDelete={deleteOperation}
+        onClose={closeModal}
+      />
     </>
   )
 }

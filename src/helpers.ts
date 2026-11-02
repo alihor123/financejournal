@@ -1,4 +1,4 @@
-import { ToastAndroid } from 'react-native'
+import { Alert, Platform, ToastAndroid } from 'react-native'
 
 //Дата для браузерного поля календаря
 export function dateToString(date: Date) {
@@ -18,7 +18,14 @@ export function dateFormating(date: Date) {
   })
 }
 
-//Короткое сообщение об ошибке
 export function showMessage(message: string) {
-  ToastAndroid.show(message, ToastAndroid.SHORT)
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT)
+  }
+  else if (Platform.OS === 'web') {
+    window.alert(message)
+  }
+  else {
+    Alert.alert('Финансовый журнал', message)
+  }
 }
