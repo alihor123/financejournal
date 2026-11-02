@@ -1,9 +1,12 @@
 import { Filter, Plus } from '@/assets/icons'
 import { OperationCard, type Operation } from '@/components/OperationCard'
+import OperationModal from '@/components/OperationModal'
+import { BlurTargetView } from 'expo-blur'
 import { Image } from 'expo-image'
 import { router } from 'expo-router'
 import { useStyles } from '@/hooks/useStyles'
-import { FlatList, Pressable, Text, View } from 'react-native'
+import { useRef, useState } from 'react'
+import { FlatList, Pressable, Text, View, type ViewInstance } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 const operations: Operation[] = [
@@ -119,50 +122,58 @@ export default function Index() {
     }
   }))
 
+  const [modalOpen, setModalOpen] = useState(false)
+  const blurTargetRef = useRef<ViewInstance | null>(null)
+
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Журнал</Text>
-          <Pressable
-            onPress={() => router.push('/filters')}
-            style={({ pressed }) => [styles.filterButton, pressed && styles.buttonPressed]}
-          >
-            <Image source={Filter} style={styles.filterIcon} tintColor={styles.filterIcon.tintColor} />
-          </Pressable>
-        </View>
-        <FlatList
-          data={operations}
-          keyExtractor={item => item.id}
-          style={styles.operations}
-          contentContainerStyle={styles.operationsContent}
-          ListHeaderComponent={
-            <View style={styles.operationsHeader}>
-              <View style={styles.balanceCard}>
-                <View>
-                  <Text style={styles.balanceLabel}>Текущий баланс</Text>
-                  <Text style={styles.balanceAmount}>32 500 ₽</Text>
-                </View>
-                <View style={styles.balanceTotals}>
-                  <View style={styles.balanceTotal}>
-                    <Text style={styles.balanceLabel}>Доходы</Text>
-                    <Text style={styles.balanceTotalAmount}>45 000 ₽</Text>
-                  </View>
-                  <View style={styles.balanceTotal}>
-                    <Text style={styles.balanceLabel}>Расходы</Text>
-                    <Text style={styles.balanceTotalAmount}>12 500 ₽</Text>
-                  </View>
-                </View>
-              </View>
-              <Text style={styles.sectionTitle}>Последние операции</Text>
+    <>
+      <BlurTargetView ref={blurTargetRef} style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+          <View style={styles.content}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Журнал</Text>
+              <Pressable
+                onPress={() => router.push('/filters')}
+                style={({ pressed }) => [styles.filterButton, pressed && styles.buttonPressed]}
+              >
+                <Image source={Filter} style={styles.filterIcon} tintColor={styles.filterIcon.tintColor} />
+              </Pressable>
             </View>
-          }
-          renderItem={({ item }) => <OperationCard operation={item} />}
-        />
-        <Pressable style={({ pressed }) => [styles.addButton, pressed && styles.buttonPressed]}>
-          <Image source={Plus} style={styles.addIcon} tintColor={styles.addIcon.tintColor} />
-        </Pressable>
-      </View>
-    </SafeAreaView>
+            <FlatList
+              data={operations}
+              keyExtractor={item => item.id}
+              style={styles.operations}
+              contentContainerStyle={styles.operationsContent}
+              ListHeaderComponent={
+                <View style={styles.operationsHeader}>
+                  <View style={styles.balanceCard}>
+                    <View>
+                      <Text style={styles.balanceLabel}>Текущий баланс</Text>
+                      <Text style={styles.balanceAmount}>32 500 ₽</Text>
+                    </View>
+                    <View style={styles.balanceTotals}>
+                      <View style={styles.balanceTotal}>
+                        <Text style={styles.balanceLabel}>Доходы</Text>
+                        <Text style={styles.balanceTotalAmount}>45 000 ₽</Text>
+                      </View>
+                      <View style={styles.balanceTotal}>
+                        <Text style={styles.balanceLabel}>Расходы</Text>
+                        <Text style={styles.balanceTotalAmount}>12 500 ₽</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <Text style={styles.sectionTitle}>Последние операции</Text>
+                </View>
+              }
+              renderItem={({ item }) => <OperationCard operation={item} />}
+            />
+            <Pressable onPress={() => setModalOpen(true)} style={({ pressed }) => [styles.addButton, pressed && styles.buttonPressed]}>
+              <Image source={Plus} style={styles.addIcon} tintColor={styles.addIcon.tintColor} />
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </BlurTargetView>
+      <OperationModal modalOpen={modalOpen} blurTarget={blurTargetRef} onClose={() => setModalOpen(false)} />
+    </>
   )
 }

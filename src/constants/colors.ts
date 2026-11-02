@@ -4,6 +4,7 @@ export const Colors = {
     textSecondary: '#8A96AA',
     text: '#1E293B',
     border: '#E8EDF4',
+    overlay: '#00000066',
     error: '#D70015',
     income: '#198754',
 
@@ -26,6 +27,7 @@ export const Colors = {
     textSecondary: '#94A3B8',
     text: '#F1F5F9',
     border: '#2B3749',
+    overlay: '#00000066',
     error: '#FF453A',
     income: '#4ADE80',
 
