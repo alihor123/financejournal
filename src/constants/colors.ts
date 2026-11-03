@@ -7,6 +7,7 @@ export const Colors = {
     overlay: '#00000066',
     error: '#D70015',
     income: '#198754',
+    expense: '#D87982',
 
     surface: '#FFFFFF',
     onSurface: '#1E293B',
@@ -30,6 +31,7 @@ export const Colors = {
     overlay: '#00000066',
     error: '#FF453A',
     income: '#4ADE80',
+    expense: '#E99AA3',
 
     surface: '#182231',
     onSurface: '#F1F5F9',
