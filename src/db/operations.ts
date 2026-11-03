@@ -1,6 +1,6 @@
 import type { Operation } from '@/components/OperationCard'
 import type { FilterForm } from '@/components/Filters'
-import { and, count, desc, eq, gte, lt, sum } from 'drizzle-orm'
+import { and, count, desc, eq, gt, gte, lt, or, sum } from 'drizzle-orm'
 import type { ExpoSQLiteDatabase } from 'drizzle-orm/expo-sqlite'
 import type * as schema from './schema'
 import { openDatabase } from './index'
@@ -32,14 +32,14 @@ function selectOperations(db: Database, filters: FilterForm, offset: number) {
 //Итоги по всему журналу независимо от фильтров и загруженной страницы
 function selectTotals(db: Database) {
   const income = Number(db.select({ amount: sum(operationsTable.amount) }).from(operationsTable)
-    .where(eq(operationsTable.type, 'income')).get()?.amount || 0)
+    .where(or(eq(operationsTable.type, 'income'), and(eq(operationsTable.type, 'adjustment'), gt(operationsTable.amount, 0)))).get()?.amount || 0)
   const expense = Number(db.select({ amount: sum(operationsTable.amount) }).from(operationsTable)
     .where(eq(operationsTable.type, 'expense')).get()?.amount || 0)
-  const adjustment = Number(db.select({ amount: sum(operationsTable.amount) }).from(operationsTable)
-    .where(eq(operationsTable.type, 'adjustment')).get()?.amount || 0)
+  const adjustmentExpense = Math.abs(Number(db.select({ amount: sum(operationsTable.amount) }).from(operationsTable)
+    .where(and(eq(operationsTable.type, 'adjustment'), lt(operationsTable.amount, 0))).get()?.amount || 0))
   const total = db.select({ count: count() }).from(operationsTable).get()
 
-  return { income, expense, balance: income - expense + adjustment, count: total?.count || 0 }
+  return { income, expense: expense + adjustmentExpense, balance: income - expense - adjustmentExpense, count: total?.count || 0 }
 }
 
 //Загрузка первой страницы и общих итогов

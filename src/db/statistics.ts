@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lt, or, sql, sum } from 'drizzle-orm'
+import { and, asc, eq, gt, gte, lt, or, sql, sum } from 'drizzle-orm'
 import { openDatabase } from './index'
 import { operationsTable } from './schema'
 
@@ -24,7 +24,17 @@ export type StatisticsData = {
   categories: CategoryStatistics[]
 }
 
-//Границы периода включают весь последний день, корректировки исключены
+const incomeCondition = or(
+  eq(operationsTable.type, 'income'),
+  and(eq(operationsTable.type, 'adjustment'), gt(operationsTable.amount, 0))
+)
+
+const expenseCondition = or(
+  eq(operationsTable.type, 'expense'),
+  and(eq(operationsTable.type, 'adjustment'), lt(operationsTable.amount, 0))
+)
+
+//Границы периода включают весь последний день
 function getPeriodConditions(period: StatisticsPeriod) {
   const start = new Date(period.dateFrom)
   start.setHours(0, 0, 0, 0)
@@ -34,51 +44,57 @@ function getPeriodConditions(period: StatisticsPeriod) {
 
   return and(
     gte(operationsTable.date, start),
-    lt(operationsTable.date, end),
-    or(eq(operationsTable.type, 'income'), eq(operationsTable.type, 'expense'))
+    lt(operationsTable.date, end)
   )
 }
 
-//Доходы и расходы за выбранный период
+//Доходы и расходы с учётом корректировок соответствующего знака
 export async function getStatistics(period: StatisticsPeriod) {
   const db = await openDatabase()
-  const rows = db.select({ type: operationsTable.type, amount: sum(operationsTable.amount) })
-    .from(operationsTable).where(getPeriodConditions(period)).groupBy(operationsTable.type).all()
-  const totals = { income: 0, expense: 0 }
+  const income = Number(db.select({ amount: sum(operationsTable.amount) }).from(operationsTable)
+    .where(and(getPeriodConditions(period), incomeCondition)).get()?.amount || 0)
+  const expenses = db.select({ amount: sum(operationsTable.amount) }).from(operationsTable)
+    .where(and(getPeriodConditions(period), expenseCondition)).groupBy(operationsTable.type).all()
+  const expense = expenses.reduce((result, row) => result + Math.abs(Number(row.amount || 0)), 0)
 
-  for (const row of rows) {
-    if (row.type === 'income') totals.income = Number(row.amount || 0)
-    if (row.type === 'expense') totals.expense = Number(row.amount || 0)
-  }
-
-  return totals
+  return { income, expense }
 }
 
-//Группировка по календарному дню в часовом поясе устройства
+//Группировка по местному календарному дню с разделением корректировок
 export async function getDailyStatistics(period: StatisticsPeriod) {
   const db = await openDatabase()
   const day = sql<string>`date(${operationsTable.date} / 1000, 'unixepoch', 'localtime')`
-  const rows = db.select({ date: day, type: operationsTable.type, amount: sum(operationsTable.amount) })
-    .from(operationsTable).where(getPeriodConditions(period))
+  const incomes = db.select({ date: day, amount: sum(operationsTable.amount) }).from(operationsTable)
+    .where(and(getPeriodConditions(period), incomeCondition)).groupBy(day).orderBy(asc(day)).all()
+  const expenses = db.select({ date: day, amount: sum(operationsTable.amount) }).from(operationsTable)
+    .where(and(getPeriodConditions(period), expenseCondition))
     .groupBy(day, operationsTable.type).orderBy(asc(day)).all()
   const days: Record<string, DailyStatistics> = {}
 
-  for (const row of rows) {
-    if (!days[row.date]) days[row.date] = { date: row.date, income: 0, expense: 0 }
-    if (row.type === 'income') days[row.date].income = Number(row.amount || 0)
-    if (row.type === 'expense') days[row.date].expense = Number(row.amount || 0)
+  for (const row of incomes) {
+    days[row.date] = { date: row.date, income: Number(row.amount || 0), expense: 0 }
   }
 
-  return Object.values(days)
+  for (const row of expenses) {
+    if (!days[row.date]) days[row.date] = { date: row.date, income: 0, expense: 0 }
+    days[row.date].expense += Math.abs(Number(row.amount || 0))
+  }
+
+  return Object.values(days).sort((a, b) => a.date.localeCompare(b.date))
 }
 
-//Расходы по категориям от большей суммы к меньшей
+//Расходы по категориям, включая уменьшение баланса
 export async function getCategoryStatistics(period: StatisticsPeriod) {
   const db = await openDatabase()
-  const amount = sum(operationsTable.amount)
-  const rows = db.select({ name: operationsTable.category, amount }).from(operationsTable)
-    .where(and(getPeriodConditions(period), eq(operationsTable.type, 'expense')))
-    .groupBy(operationsTable.category).orderBy(desc(amount), asc(operationsTable.category)).all()
+  const rows = db.select({ name: operationsTable.category, amount: sum(operationsTable.amount) }).from(operationsTable)
+    .where(and(getPeriodConditions(period), expenseCondition))
+    .groupBy(operationsTable.category, operationsTable.type).all()
+  const categories: Record<string, number> = {}
 
-  return rows.map(row => ({ name: row.name, amount: Number(row.amount || 0) }))
+  for (const row of rows) {
+    categories[row.name] = (categories[row.name] || 0) + Math.abs(Number(row.amount || 0))
+  }
+
+  return Object.entries(categories).map(([name, amount]) => ({ name, amount }))
+    .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name, 'ru'))
 }

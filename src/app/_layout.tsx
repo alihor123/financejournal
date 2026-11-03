@@ -1,3 +1,4 @@
+import { OperationsProvider } from '@/context/OperationsContext'
 import { openDatabase } from '@/db'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
@@ -95,15 +96,17 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="auto" />
-      <Stack screenOptions={{
-        animation: 'default',
-        contentStyle: styles.screen,
-        headerStyle: styles.screen,
-        headerTintColor: styles.headerTitle.color,
-        headerShadowVisible: false
-      }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
+      <OperationsProvider>
+        <Stack screenOptions={{
+          animation: 'default',
+          contentStyle: styles.screen,
+          headerStyle: styles.screen,
+          headerTintColor: styles.headerTitle.color,
+          headerShadowVisible: false
+        }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+      </OperationsProvider>
     </>
   )
 }

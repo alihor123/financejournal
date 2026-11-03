@@ -1,8 +1,8 @@
 import DateField from '@/components/DateField'
 import { getStatistics, getDailyStatistics, getCategoryStatistics, type StatisticsPeriod, type StatisticsData } from '@/db/statistics'
 import { dateFormating, dateToString } from '@/helpers'
-import { useIsFocused } from 'expo-router'
-import { useEffect, useRef, useState } from 'react'
+import { OperationsContext } from '@/context/OperationsContext'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { useStyles } from '@/hooks/useStyles'
 import { ActivityIndicator, Pressable, ScrollView, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native'
 import { BarChart } from 'react-native-gifted-charts'
@@ -216,7 +216,7 @@ export default function StatisticsScreen() {
   }))
 
   const { width } = useWindowDimensions()
-  const isFocused = useIsFocused()
+  const { operationsVersion } = useContext(OperationsContext)
   const [period, setPeriod] = useState<StatisticsPeriod>(getDefaultPeriod)
   const [statistics, setStatistics] = useState<StatisticsData>({ totals: { income: 0, expense: 0 }, days: [], categories: [] })
   const [isLoading, setIsLoading] = useState(true)
@@ -259,12 +259,12 @@ export default function StatisticsScreen() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (isFocused) loadStatistics(period)
+    loadStatistics(period)
 
     return () => {
       requestRef.current += 1
     }
-  }, [period, isFocused])
+  }, [period, operationsVersion])
 
   const { income, expense } = statistics.totals
   const hasData = income > 0 || expense > 0

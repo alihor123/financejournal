@@ -1,3 +1,4 @@
+import { OperationsContext } from '@/context/OperationsContext'
 import { Filter, Plus } from '@/assets/icons'
 import { OperationCard, type Operation } from '@/components/OperationCard'
 import OperationModal, { type ModalOpen, type OperationForm } from '@/components/OperationModal/index'
@@ -8,7 +9,7 @@ import Filters, { type FilterForm } from '@/components/Filters'
 import { useStyles } from '@/hooks/useStyles'
 import { getJournal, getOperations, insertOperation, updateOperation, removeOperation, pageSize } from '@/db/operations'
 import { showMessage } from '@/helpers'
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, Text, View, type ViewInstance } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
@@ -161,6 +162,7 @@ export default function Index() {
     }
   }))
 
+  const { updateOperationsVersion } = useContext(OperationsContext)
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const [operations, setOperations] = useState<Operation[]>([])
   const [modalOpen, setModalOpen] = useState<ModalOpen>(null)
@@ -316,6 +318,7 @@ export default function Index() {
 
     try {
       await insertOperation({ ...data, id: randomUUID() })
+      updateOperationsVersion()
       closeModal()
       await loadOperations(filters)
     }
@@ -336,6 +339,7 @@ export default function Index() {
 
     try {
       await updateOperation({ ...data, id: modalOpen.operation.id })
+      updateOperationsVersion()
       closeModal()
       await loadOperations(filters)
     }
@@ -356,6 +360,7 @@ export default function Index() {
 
     try {
       await removeOperation(modalOpen.operation.id)
+      updateOperationsVersion()
       closeModal()
       await loadOperations(filters)
     }
