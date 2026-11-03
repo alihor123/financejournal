@@ -15,6 +15,7 @@ export type Operation = {
 
 type OperationCardProps = {
   operation: Operation
+  disabled?: boolean
   onEdit: () => void
   onDelete: () => void
 }
@@ -29,7 +30,7 @@ function amountFormating(operation: Operation) {
   return `${sign}${amount} ₽`
 }
 
-export function OperationCard({ operation, onEdit, onDelete }: OperationCardProps) {
+export function OperationCard({ operation, onEdit, onDelete, disabled }: OperationCardProps) {
   const styles = useStyles((colors) => ({
     operation: {
       padding: 16,
@@ -112,10 +113,10 @@ export function OperationCard({ operation, onEdit, onDelete }: OperationCardProp
       <View style={styles.operationFooter}>
         <Text style={styles.operationDate}>{dateFormating(operation.date)}</Text>
         <View style={styles.operationActions}>
-          <Pressable onPress={onEdit} style={({ pressed }) => [styles.operationButton, pressed && styles.buttonPressed]}>
+          <Pressable disabled={disabled} onPress={onEdit} style={({ pressed }) => [styles.operationButton, pressed && styles.buttonPressed]}>
             <Image source={Pencil} style={styles.operationIcon} tintColor={styles.operationIcon.tintColor} />
           </Pressable>
-          <Pressable onPress={onDelete} style={({ pressed }) => [styles.operationButton, pressed && styles.buttonPressed]}>
+          <Pressable disabled={disabled} onPress={onDelete} style={({ pressed }) => [styles.operationButton, pressed && styles.buttonPressed]}>
             <Image source={Trash} style={styles.operationIcon} tintColor={styles.operationIcon.tintColor} />
           </Pressable>
         </View>

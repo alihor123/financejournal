@@ -53,17 +53,18 @@ export type OperationModalStyles = {
 
 type OperationModalProps = {
   modalOpen: ModalOpen
+  isSaving: boolean
   form: OperationForm
   balance: number
   blurTarget: RefObject<ViewInstance | null>
   onChangeForm: (data: Partial<OperationForm>) => void
-  onCreate: (operation: Omit<Operation, 'id'>) => void
-  onEdit: (operation: Omit<Operation, 'id'>) => void
-  onDelete: () => void
+  onCreate: (operation: Omit<Operation, 'id'>) => Promise<void>
+  onEdit: (operation: Omit<Operation, 'id'>) => Promise<void>
+  onDelete: () => Promise<void>
   onClose: () => void
 }
 
-export default function OperationModal({ modalOpen, form, balance, blurTarget, onChangeForm, onCreate, onEdit, onDelete, onClose }: OperationModalProps) {
+export default function OperationModal({ modalOpen, isSaving, form, balance, blurTarget, onChangeForm, onCreate, onEdit, onDelete, onClose }: OperationModalProps) {
   const styles = useStyles((colors) => ({
     container: {
       flex: 1
@@ -261,6 +262,8 @@ export default function OperationModal({ modalOpen, form, balance, blurTarget, o
 
   //Сохранение новой или отредактированной операции
   function saveOperation() {
+    if (isSaving) return
+
     const amount = Math.round(Number(form.amount.replace(',', '.')) * 100)
 
     if (!validateForm(amount)) return
@@ -273,18 +276,16 @@ export default function OperationModal({ modalOpen, form, balance, blurTarget, o
     else {
       onCreate(data)
     }
-
-    closeModal()
   }
 
   //Подтверждение удаления операции
   function confirmDelete() {
-    onDelete()
-    closeModal()
+    if (!isSaving) onDelete()
   }
 
   //Закрытие окна
   function closeModal() {
+    if (isSaving) return
     onClose()
   }
 
@@ -304,11 +305,12 @@ export default function OperationModal({ modalOpen, form, balance, blurTarget, o
   function getModalContent() {
     switch (modalOpen?.type) {
       case 'delete':
-        return <DeleteOperationContent operation={modalOpen.operation} styles={styles} onDelete={confirmDelete} onClose={closeModal} />
+        return <DeleteOperationContent isSaving={isSaving} operation={modalOpen.operation} styles={styles} onDelete={confirmDelete} onClose={closeModal} />
       default:
         return (
           <OperationFormContent
             styles={styles}
+            isSaving={isSaving}
             form={form}
             balance={balance}
             onChangeForm={onChangeForm}
@@ -335,7 +337,7 @@ export default function OperationModal({ modalOpen, form, balance, blurTarget, o
             <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={styles.header}>
                 <Text style={styles.title}>{getModalTitle()}</Text>
-                <Pressable onPress={closeModal} style={({ pressed }) => [styles.closeButton, pressed && styles.buttonPressed]}>
+                <Pressable disabled={isSaving} onPress={closeModal} style={({ pressed }) => [styles.closeButton, pressed && styles.buttonPressed]}>
                   <Image source={Close} style={styles.closeIcon} tintColor={styles.closeIcon.tintColor} />
                 </Pressable>
               </View>

@@ -6,12 +6,13 @@ import { Platform, Pressable, Text, View, useColorScheme } from 'react-native'
 
 type DateFieldProps = {
   value: Date | null
+  disabled?: boolean
   placeholder?: string
   minimumDate?: Date
   onChange: (date: Date) => void
 }
 
-export default function DateField({ value, placeholder = 'Выбрать дату', minimumDate, onChange }: DateFieldProps) {
+export default function DateField({ value, disabled, placeholder = 'Выбрать дату', minimumDate, onChange }: DateFieldProps) {
   const styles = useStyles(colors => ({
     input: {
       minHeight: 46,
@@ -41,6 +42,8 @@ export default function DateField({ value, placeholder = 'Выбрать дат�
 
   //Открытие системного календаря
   function openCalendar() {
+    if (disabled) return
+
     if (Platform.OS === 'android') {
       DateTimePickerAndroid.open({
         value: value || minimumDate || new Date(),
@@ -75,6 +78,7 @@ export default function DateField({ value, placeholder = 'Выбрать дат�
     return (
       <input
         type="date"
+        disabled={disabled}
         aria-label={placeholder}
         style={webStyle}
         value={value ? dateToString(value) : ''}
@@ -88,11 +92,12 @@ export default function DateField({ value, placeholder = 'Выбрать дат�
 
   return (
     <View>
-      <Pressable onPress={openCalendar} style={({ pressed }) => [styles.input, pressed && styles.pressed]}>
+      <Pressable disabled={disabled} onPress={openCalendar} style={({ pressed }) => [styles.input, pressed && styles.pressed]}>
         <Text style={styles.text}>{value ? value.toLocaleDateString('ru-RU') : placeholder}</Text>
       </Pressable>
       {Platform.OS === 'ios' && isOpen && (
         <DateTimePicker
+          disabled={disabled}
           value={value || minimumDate || new Date()}
           minimumDate={minimumDate}
           mode="date"

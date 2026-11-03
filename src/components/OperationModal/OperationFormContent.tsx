@@ -10,12 +10,13 @@ type OperationFormContentProps = {
   styles: OperationModalStyles
   form: OperationForm
   balance: number
+  isSaving: boolean
   onChangeForm: (data: Partial<OperationForm>) => void
   onSave: () => void
   onClose: () => void
 }
 
-export function OperationFormContent({ styles, form, balance, onChangeForm, onSave, onClose }: OperationFormContentProps) {
+export function OperationFormContent({ styles, form, balance, isSaving, onChangeForm, onSave, onClose }: OperationFormContentProps) {
   //Выбор типа операции и подстановка текущего баланса
   function changeType(type: OperationForm['type']) {
     if (type === form.type) return
@@ -48,14 +49,14 @@ export function OperationFormContent({ styles, form, balance, onChangeForm, onSa
     <>
       <View style={styles.types}>
         <View style={styles.typesRow}>
-          <Pressable onPress={() => changeType('income')} style={({ pressed }) => [styles.typeButton, styles.typeHalf, form.type === 'income' && styles.typeSelected, pressed && styles.buttonPressed]}>
+          <Pressable disabled={isSaving} onPress={() => changeType('income')} style={({ pressed }) => [styles.typeButton, styles.typeHalf, form.type === 'income' && styles.typeSelected, pressed && styles.buttonPressed]}>
             <Text style={[styles.typeText, form.type === 'income' && styles.typeSelectedText]}>Доход</Text>
           </Pressable>
-          <Pressable onPress={() => changeType('expense')} style={({ pressed }) => [styles.typeButton, styles.typeHalf, form.type === 'expense' && styles.typeSelected, pressed && styles.buttonPressed]}>
+          <Pressable disabled={isSaving} onPress={() => changeType('expense')} style={({ pressed }) => [styles.typeButton, styles.typeHalf, form.type === 'expense' && styles.typeSelected, pressed && styles.buttonPressed]}>
             <Text style={[styles.typeText, form.type === 'expense' && styles.typeSelectedText]}>Расход</Text>
           </Pressable>
         </View>
-        <Pressable onPress={() => changeType('adjustment')} style={({ pressed }) => [styles.typeButton, form.type === 'adjustment' && styles.typeSelected, pressed && styles.buttonPressed]}>
+        <Pressable disabled={isSaving} onPress={() => changeType('adjustment')} style={({ pressed }) => [styles.typeButton, form.type === 'adjustment' && styles.typeSelected, pressed && styles.buttonPressed]}>
           <Text style={[styles.typeText, form.type === 'adjustment' && styles.typeSelectedText]}>Изменить баланс</Text>
         </Pressable>
       </View>
@@ -63,6 +64,7 @@ export function OperationFormContent({ styles, form, balance, onChangeForm, onSa
         <Text style={styles.label}>{form.type === 'adjustment' ? 'Новый баланс' : 'Сумма'}</Text>
         <TextInput
           style={styles.input}
+          editable={!isSaving}
           value={form.amount}
           onChangeText={changeAmount}
           keyboardType={'decimal-pad'}
@@ -74,6 +76,7 @@ export function OperationFormContent({ styles, form, balance, onChangeForm, onSa
         <View style={styles.field}>
           <Text style={styles.label}>Категория</Text>
           <Dropdown
+            disable={isSaving}
             style={styles.selector}
             containerStyle={styles.categoryList}
             placeholderStyle={styles.placeholder}
@@ -94,12 +97,13 @@ export function OperationFormContent({ styles, form, balance, onChangeForm, onSa
       )}
       <View style={styles.field}>
         <Text style={styles.label}>Дата</Text>
-        <DateField value={form.date} onChange={date => onChangeForm({ date })} />
+        <DateField disabled={isSaving} value={form.date} onChange={date => onChangeForm({ date })} />
       </View>
       <View style={styles.field}>
         <Text style={styles.label}>Описание</Text>
         <TextInput
           style={[styles.input, styles.description]}
+          editable={!isSaving}
           value={form.description}
           onChangeText={description => onChangeForm({ description })}
           placeholder="На что потратили или откуда получили"
@@ -108,10 +112,10 @@ export function OperationFormContent({ styles, form, balance, onChangeForm, onSa
         />
       </View>
       <View style={styles.actions}>
-        <Pressable onPress={onClose} style={({ pressed }) => [styles.button, styles.cancelButton, pressed && styles.buttonPressed]}>
+        <Pressable disabled={isSaving} onPress={onClose} style={({ pressed }) => [styles.button, styles.cancelButton, pressed && styles.buttonPressed]}>
           <Text style={[styles.buttonText, styles.cancelText]}>Отмена</Text>
         </Pressable>
-        <Pressable onPress={onSave} style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
+        <Pressable disabled={isSaving} onPress={onSave} style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
           <Text style={styles.buttonText}>Сохранить</Text>
         </Pressable>
       </View>

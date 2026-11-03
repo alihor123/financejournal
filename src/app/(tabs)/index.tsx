@@ -6,8 +6,10 @@ import { randomUUID } from 'expo-crypto'
 import { Image } from 'expo-image'
 import Filters, { type FilterForm } from '@/components/Filters'
 import { useStyles } from '@/hooks/useStyles'
-import { useRef, useState } from 'react'
-import { FlatList, Pressable, Text, View, type ViewInstance } from 'react-native'
+import { getJournal, getOperations, insertOperation, updateOperation, removeOperation, pageSize } from '@/db/operations'
+import { showMessage } from '@/helpers'
+import { useEffect, useRef, useState } from 'react'
+import { ActivityIndicator, FlatList, Pressable, Text, View, type ViewInstance } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 function getEmptyForm(): OperationForm {
@@ -112,6 +114,20 @@ export default function Index() {
       alignItems: 'center',
       justifyContent: 'center'
     },
+    retryButton: {
+      marginTop: 16,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 24,
+      backgroundColor: colors.surfaceSoft
+    },
+    retryText: {
+      fontWeight: '600',
+      color: colors.onSurfaceSoft
+    },
+    loader: {
+      color: colors.primary
+    },
     emptyText: {
       fontSize: 16,
       textAlign: 'center',
@@ -151,36 +167,81 @@ export default function Index() {
   const [form, setForm] = useState<OperationForm>(getEmptyForm)
   const [filterForm, setFilterForm] = useState<FilterForm>(getEmptyFilters)
   const [filters, setFilters] = useState<FilterForm>(getEmptyFilters)
+  const [totals, setTotals] = useState({ income: 0, expense: 0, balance: 0, count: 0 })
+  const [isLoading, setIsLoading] = useState(true)
+  const [isLoadError, setIsLoadError] = useState(false)
+  const [isNextPageLoading, setIsNextPageLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const offsetRef = useRef(0)
+  const requestRef = useRef(0)
+  const loadingRef = useRef(false)
+  const savingRef = useRef(false)
   const blurTargetRef = useRef<ViewInstance | null>(null)
 
-  const totals = operations.reduce((result, operation) => {
-    if (operation.type === 'income') {
-      result.income += operation.amount
-      result.balance += operation.amount
+  //Загрузка первой страницы и итогов по всему журналу
+  async function loadOperations(selectedFilters: FilterForm) {
+    const request = ++requestRef.current
+    loadingRef.current = true
+    offsetRef.current = 0
+    setIsLoading(true)
+    setIsLoadError(false)
+    setIsNextPageLoading(false)
+
+    try {
+      const data = await getJournal(selectedFilters)
+      if (request !== requestRef.current) return
+
+      setOperations(data.operations)
+      setTotals(data.totals)
+      offsetRef.current = data.operations.length
+      setHasMore(data.operations.length === pageSize)
     }
-
-    if (operation.type === 'expense') {
-      result.expense += operation.amount
-      result.balance -= operation.amount
+    catch {
+      if (request === requestRef.current) setIsLoadError(true)
     }
-
-    if (operation.type === 'adjustment') {
-      result.balance += operation.amount
+    finally {
+      if (request === requestRef.current) {
+        loadingRef.current = false
+        setIsLoading(false)
+      }
     }
+  }
 
-    return result
-  }, { income: 0, expense: 0, balance: 0 })
+  //Догрузка следующей страницы без повторного запроса при прокрутке
+  async function loadNextPage() {
+    if (loadingRef.current || savingRef.current || isLoadError || !hasMore) return
 
-  const filteredOperations = operations.filter(operation => {
-    const date = new Date(operation.date)
-    date.setHours(0, 0, 0, 0)
+    const request = requestRef.current
+    loadingRef.current = true
+    setIsNextPageLoading(true)
 
-    if (filters.dateFrom && date < filters.dateFrom) return false
-    if (filters.dateTo && date > filters.dateTo) return false
-    if (filters.category && operation.category !== filters.category) return false
+    try {
+      const data = await getOperations(filters, offsetRef.current)
+      if (request !== requestRef.current) return
 
-    return true
-  })
+      setOperations(prev => [...prev, ...data])
+      offsetRef.current += data.length
+      setHasMore(data.length === pageSize)
+    }
+    catch {
+      if (request === requestRef.current) showMessage('Не удалось загрузить следующие операции')
+    }
+    finally {
+      if (request === requestRef.current) {
+        loadingRef.current = false
+        setIsNextPageLoading(false)
+      }
+    }
+  }
+
+  useEffect(() => {
+    loadOperations(filters)
+
+    return () => {
+      requestRef.current += 1
+    }
+  }, [filters])
 
   //Открытие формы с применёнными фильтрами
   function openFilters() {
@@ -247,40 +308,64 @@ export default function Index() {
     setForm(getEmptyForm())
   }
 
-  //Добавление операции в журнал
-  function createOperation(data: Omit<Operation, 'id'>) {
-    const operation: Operation = { ...data, id: randomUUID() }
+  //Сохранение новой операции и обновление первой страницы
+  async function createOperation(data: Omit<Operation, 'id'>) {
+    if (savingRef.current) return
+    savingRef.current = true
+    setIsSaving(true)
 
-    if (data.type === 'adjustment') {
-      operation.amount = data.amount - totals.balance
-      operation.category = 'Изменение баланса'
+    try {
+      await insertOperation({ ...data, id: randomUUID() })
+      closeModal()
+      await loadOperations(filters)
     }
-
-    setOperations(prev => [operation, ...prev])
+    catch {
+      showMessage('Не удалось сохранить операцию. Попробуйте позже')
+    }
+    finally {
+      savingRef.current = false
+      setIsSaving(false)
+    }
   }
 
-  //Сохранение изменений выбранной операции по её ID
-  function editOperation(data: Omit<Operation, 'id'>) {
-    if (modalOpen?.type !== 'edit') return
+  //Сохранение изменений в БД и обновление журнала
+  async function editOperation(data: Omit<Operation, 'id'>) {
+    if (savingRef.current || modalOpen?.type !== 'edit') return
+    savingRef.current = true
+    setIsSaving(true)
 
-    const previousOperation = modalOpen.operation
-    const operation: Operation = { ...data, id: previousOperation.id }
-
-    if (data.type === 'adjustment') {
-      const previousAmount = previousOperation.type === 'expense' ? -previousOperation.amount : previousOperation.amount
-      operation.amount = data.amount - (totals.balance - previousAmount)
-      operation.category = 'Изменение баланса'
+    try {
+      await updateOperation({ ...data, id: modalOpen.operation.id })
+      closeModal()
+      await loadOperations(filters)
     }
-
-    setOperations(prev => prev.map(item => item.id === operation.id ? operation : item))
+    catch {
+      showMessage('Не удалось изменить операцию. Попробуйте позже')
+    }
+    finally {
+      savingRef.current = false
+      setIsSaving(false)
+    }
   }
 
-  //Удаление выбранной операции из журнала
-  function deleteOperation() {
-    if (modalOpen?.type !== 'delete') return
+  //Удаление из БД и обновление списка с итогами
+  async function deleteOperation() {
+    if (savingRef.current || modalOpen?.type !== 'delete') return
+    savingRef.current = true
+    setIsSaving(true)
 
-    const id = modalOpen.operation.id
-    setOperations(prev => prev.filter(operation => operation.id !== id))
+    try {
+      await removeOperation(modalOpen.operation.id)
+      closeModal()
+      await loadOperations(filters)
+    }
+    catch {
+      showMessage('Не удалось удалить операцию. Попробуйте позже')
+    }
+    finally {
+      savingRef.current = false
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -293,6 +378,7 @@ export default function Index() {
               <Text style={styles.title}>Журнал</Text>
               <Pressable
                 onPress={openFilters}
+                disabled={isSaving}
                 style={({ pressed }) => [styles.filterButton, pressed && styles.buttonPressed]}
               >
                 <Image source={Filter} style={styles.filterIcon} tintColor={styles.filterIcon.tintColor} />
@@ -305,9 +391,25 @@ export default function Index() {
                 onReset={resetFilters}
               />
             </View>
-            <FlatList
-              data={filteredOperations}
+            {(isLoading || isLoadError) && (
+              <View style={styles.empty}>
+                {isLoading && <ActivityIndicator size="large" color={styles.loader.color} />}
+                {!isLoading && isLoadError && (
+                  <>
+                    <Text style={styles.emptyText}>Не удалось загрузить операции</Text>
+                    <Pressable onPress={() => loadOperations(filters)} style={({ pressed }) => [styles.retryButton, pressed && styles.buttonPressed]}>
+                      <Text style={styles.retryText}>Повторить</Text>
+                    </Pressable>
+                  </>
+                )}
+              </View>
+            )}
+            {!isLoading && !isLoadError && <FlatList
+              data={operations}
               keyExtractor={item => item.id}
+              onEndReached={loadNextPage}
+              onEndReachedThreshold={0.3}
+              ListFooterComponent={<View>{isNextPageLoading && <ActivityIndicator size="large" color={styles.loader.color} />}</View>}
               style={styles.operations}
               contentContainerStyle={styles.operationsContent}
               ListHeaderComponent={
@@ -333,13 +435,13 @@ export default function Index() {
               }
               ListEmptyComponent={
                 <View style={styles.empty}>
-                  {operations.length === 0 && <Text style={styles.emptyText}>Операций пока нет</Text>}
-                  {operations.length > 0 && <Text style={styles.emptyText}>Ничего не найдено</Text>}
+                  {totals.count === 0 && <Text style={styles.emptyText}>Операций пока нет</Text>}
+                  {totals.count > 0 && <Text style={styles.emptyText}>Ничего не найдено</Text>}
                 </View>
               }
-              renderItem={({ item }) => <OperationCard operation={item} onEdit={() => openEditModal(item)} onDelete={() => openDeleteModal(item)} />}
-            />
-            <Pressable onPress={openCreateModal} style={({ pressed }) => [styles.addButton, pressed && styles.buttonPressed]}>
+              renderItem={({ item }) => <OperationCard operation={item} onEdit={() => openEditModal(item)} onDelete={() => openDeleteModal(item)} disabled={isSaving} />}
+            />}
+            <Pressable disabled={isLoading || isLoadError || isSaving} onPress={openCreateModal} style={({ pressed }) => [styles.addButton, pressed && styles.buttonPressed]}>
               <Image source={Plus} style={styles.addIcon} tintColor={styles.addIcon.tintColor} />
             </Pressable>
           </View>
@@ -347,6 +449,7 @@ export default function Index() {
       </BlurTargetView>
       <OperationModal
         modalOpen={modalOpen}
+        isSaving={isSaving}
         form={form}
         balance={totals.balance}
         blurTarget={blurTargetRef}
