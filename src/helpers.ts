@@ -1,6 +1,6 @@
-import { Alert, Platform, ToastAndroid } from 'react-native'
+import { ToastAndroid } from 'react-native'
 
-//Дата для браузерного поля календаря
+//Дата в формате календаря YYYY-MM-DD
 export function dateToString(date: Date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -19,13 +19,5 @@ export function dateFormating(date: Date) {
 }
 
 export function showMessage(message: string) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT)
-  }
-  else if (Platform.OS === 'web') {
-    window.alert(message)
-  }
-  else {
-    Alert.alert('Финансовый журнал', message)
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT)
 }

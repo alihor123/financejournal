@@ -4,7 +4,7 @@ import OperationModal, { type ModalOpen, type OperationForm } from '@/components
 import { BlurTargetView } from 'expo-blur'
 import { randomUUID } from 'expo-crypto'
 import { Image } from 'expo-image'
-import Filters from '@/components/Filters'
+import Filters, { type FilterForm } from '@/components/Filters'
 import { useStyles } from '@/hooks/useStyles'
 import { useRef, useState } from 'react'
 import { FlatList, Pressable, Text, View, type ViewInstance } from 'react-native'
@@ -12,6 +12,10 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 function getEmptyForm(): OperationForm {
   return { type: 'expense', category: '', amount: '', date: new Date(), description: '' }
+}
+
+function getEmptyFilters(): FilterForm {
+  return { dateFrom: null, dateTo: null, category: '' }
 }
 
 export default function Index() {
@@ -98,8 +102,20 @@ export default function Index() {
       gap: 20
     },
     operationsContent: {
+      flexGrow: 1,
       gap: 12,
       paddingBottom: 80
+    },
+    empty: {
+      flex: 1,
+      padding: 24,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    emptyText: {
+      fontSize: 16,
+      textAlign: 'center',
+      color: colors.textSecondary
     },
     sectionTitle: {
       fontSize: 18,
@@ -133,6 +149,8 @@ export default function Index() {
   const [operations, setOperations] = useState<Operation[]>([])
   const [modalOpen, setModalOpen] = useState<ModalOpen>(null)
   const [form, setForm] = useState<OperationForm>(getEmptyForm)
+  const [filterForm, setFilterForm] = useState<FilterForm>(getEmptyFilters)
+  const [filters, setFilters] = useState<FilterForm>(getEmptyFilters)
   const blurTargetRef = useRef<ViewInstance | null>(null)
 
   const totals = operations.reduce((result, operation) => {
@@ -152,6 +170,48 @@ export default function Index() {
 
     return result
   }, { income: 0, expense: 0, balance: 0 })
+
+  const filteredOperations = operations.filter(operation => {
+    const date = new Date(operation.date)
+    date.setHours(0, 0, 0, 0)
+
+    if (filters.dateFrom && date < filters.dateFrom) return false
+    if (filters.dateTo && date > filters.dateTo) return false
+    if (filters.category && operation.category !== filters.category) return false
+
+    return true
+  })
+
+  //Открытие формы с применёнными фильтрами
+  function openFilters() {
+    setFilterForm(filters)
+    setIsFiltersOpen(prev => !prev)
+  }
+
+  //Изменение полей фильтра и границ периода
+  function changeFilterForm(data: Partial<FilterForm>) {
+    setFilterForm(prev => {
+      const newForm = { ...prev, ...data }
+
+      if (data.dateFrom && (!newForm.dateTo || newForm.dateTo < data.dateFrom)) {
+        newForm.dateTo = data.dateFrom
+      }
+
+      return newForm
+    })
+  }
+
+  //Применение фильтров к списку операций
+  function applyFilters() {
+    setFilters(filterForm)
+    setIsFiltersOpen(false)
+  }
+
+  //Сброс формы и отображение всех операций
+  function resetFilters() {
+    setFilterForm(getEmptyFilters())
+    setFilters(getEmptyFilters())
+  }
 
   //Открытие пустой формы новой операции
   function openCreateModal() {
@@ -232,15 +292,21 @@ export default function Index() {
             <View style={styles.header}>
               <Text style={styles.title}>Журнал</Text>
               <Pressable
-                onPress={() => setIsFiltersOpen(prev => !prev)}
+                onPress={openFilters}
                 style={({ pressed }) => [styles.filterButton, pressed && styles.buttonPressed]}
               >
                 <Image source={Filter} style={styles.filterIcon} tintColor={styles.filterIcon.tintColor} />
               </Pressable>
-              {isFiltersOpen && <Filters onClose={() => setIsFiltersOpen(false)} />}
+              <Filters
+                isOpen={isFiltersOpen}
+                form={filterForm}
+                onChangeForm={changeFilterForm}
+                onApply={applyFilters}
+                onReset={resetFilters}
+              />
             </View>
             <FlatList
-              data={operations}
+              data={filteredOperations}
               keyExtractor={item => item.id}
               style={styles.operations}
               contentContainerStyle={styles.operationsContent}
@@ -263,6 +329,12 @@ export default function Index() {
                     </View>
                   </View>
                   <Text style={styles.sectionTitle}>Последние операции</Text>
+                </View>
+              }
+              ListEmptyComponent={
+                <View style={styles.empty}>
+                  {operations.length === 0 && <Text style={styles.emptyText}>Операций пока нет</Text>}
+                  {operations.length > 0 && <Text style={styles.emptyText}>Ничего не найдено</Text>}
                 </View>
               }
               renderItem={({ item }) => <OperationCard operation={item} onEdit={() => openEditModal(item)} onDelete={() => openDeleteModal(item)} />}

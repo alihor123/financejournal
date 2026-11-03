@@ -2,11 +2,10 @@ import { Close } from '@/assets/icons'
 import type { Operation } from '@/components/OperationCard'
 import { showMessage } from '@/helpers'
 import { useStyles } from '@/hooks/useStyles'
-import { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import { BlurView } from 'expo-blur'
 import { Image } from 'expo-image'
-import { useState, type RefObject } from 'react'
-import { Modal, Platform, Pressable, ScrollView, Text, View, type TextStyle, type ViewInstance, type ViewStyle } from 'react-native'
+import { type RefObject } from 'react'
+import { Modal, Pressable, ScrollView, Text, View, type TextStyle, type ViewInstance, type ViewStyle } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { OperationFormContent } from './OperationFormContent'
 import { DeleteOperationContent } from './DeleteOperationContent'
@@ -35,8 +34,6 @@ export type OperationModalStyles = {
   field: ViewStyle
   label: TextStyle
   input: TextStyle & { backgroundColor: string, color: string }
-  dateButton: ViewStyle
-  dateText: TextStyle
   selector: ViewStyle
   categoryList: ViewStyle
   categoryText: TextStyle
@@ -174,17 +171,6 @@ export default function OperationModal({ modalOpen, form, balance, blurTarget, o
       fontSize: 16,
       color: colors.text
     },
-    dateButton: {
-      height: 46,
-      paddingHorizontal: 14,
-      justifyContent: 'center',
-      borderRadius: 16,
-      backgroundColor: colors.surfacePressed
-    },
-    dateText: {
-      fontSize: 16,
-      color: colors.text
-    },
     selector: {
       height: 46,
       paddingHorizontal: 14,
@@ -253,8 +239,6 @@ export default function OperationModal({ modalOpen, form, balance, blurTarget, o
     }
   }))
 
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
-
   //Проверка формы перед сохранением
   function validateForm(amount: number) {
     if (!form.amount || form.amount === '-') {
@@ -299,25 +283,9 @@ export default function OperationModal({ modalOpen, form, balance, blurTarget, o
     closeModal()
   }
 
-  //Закрытие окна и календаря
+  //Закрытие окна
   function closeModal() {
-    setIsCalendarOpen(false)
     onClose()
-  }
-
-  //Открытие календаря для выбора даты
-  function openCalendar() {
-    if (Platform.OS === 'android') {
-      DateTimePickerAndroid.open({
-        value: form.date,
-        mode: 'date',
-        display: 'calendar',
-        onValueChange: (_, date) => onChangeForm({ date })
-      })
-    }
-    else {
-      setIsCalendarOpen(prev => !prev)
-    }
   }
 
   //Заголовок окна по выбранному действию
@@ -343,9 +311,7 @@ export default function OperationModal({ modalOpen, form, balance, blurTarget, o
             styles={styles}
             form={form}
             balance={balance}
-            isCalendarOpen={isCalendarOpen}
             onChangeForm={onChangeForm}
-            onOpenCalendar={openCalendar}
             onSave={saveOperation}
             onClose={closeModal}
           />

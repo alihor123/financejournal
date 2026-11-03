@@ -1,49 +1,21 @@
 import { ArrowDown } from '@/assets/icons'
-import { dateToString } from '@/helpers'
-import DateTimePicker from '@react-native-community/datetimepicker'
+import { categories } from '@/constants/categories'
+import DateField from '@/components/DateField'
 import { Image } from 'expo-image'
-import type { CSSProperties } from 'react'
-import { Platform, Pressable, Text, TextInput, View } from 'react-native'
+import { Pressable, Text, TextInput, View } from 'react-native'
 import { Dropdown } from 'react-native-element-dropdown'
 import type { OperationForm, OperationModalStyles } from '.'
-
-const categories = [
-  { name: 'Продукты' },
-  { name: 'Транспорт' },
-  { name: 'Жильё' },
-  { name: 'Подписки' },
-  { name: 'Развлечения' },
-  { name: 'Здоровье' },
-  { name: 'Зарплата' },
-  { name: 'Подработка' },
-  { name: 'Подарки' },
-  { name: 'Другое' }
-]
 
 type OperationFormContentProps = {
   styles: OperationModalStyles
   form: OperationForm
   balance: number
-  isCalendarOpen: boolean
   onChangeForm: (data: Partial<OperationForm>) => void
-  onOpenCalendar: () => void
   onSave: () => void
   onClose: () => void
 }
 
-export function OperationFormContent({ styles, form, balance, isCalendarOpen, onChangeForm, onOpenCalendar, onSave, onClose }: OperationFormContentProps) {
-  const webDateStyle: CSSProperties = {
-    height: 46,
-    borderRadius: 16,
-    fontSize: 16,
-    backgroundColor: styles.input.backgroundColor,
-    color: styles.input.color,
-    width: '100%',
-    padding: '0 14px',
-    borderWidth: 0,
-    boxSizing: 'border-box'
-  }
-
+export function OperationFormContent({ styles, form, balance, onChangeForm, onSave, onClose }: OperationFormContentProps) {
   //Выбор типа операции и подстановка текущего баланса
   function changeType(type: OperationForm['type']) {
     if (type === form.type) return
@@ -122,29 +94,7 @@ export function OperationFormContent({ styles, form, balance, isCalendarOpen, on
       )}
       <View style={styles.field}>
         <Text style={styles.label}>Дата</Text>
-        {Platform.OS === 'web' && (
-          <input
-            type="date"
-            style={webDateStyle}
-            value={dateToString(form.date)}
-            onChange={event => {
-              if (event.target.value) onChangeForm({ date: new Date(`${event.target.value}T00:00:00`) })
-            }}
-          />
-        )}
-        {Platform.OS !== 'web' && (
-          <Pressable onPress={onOpenCalendar} style={({ pressed }) => [styles.dateButton, pressed && styles.buttonPressed]}>
-            <Text style={styles.dateText}>{form.date.toLocaleDateString('ru-RU')}</Text>
-          </Pressable>
-        )}
-        {Platform.OS === 'ios' && isCalendarOpen && (
-          <DateTimePicker
-            value={form.date}
-            mode="date"
-            display="inline"
-            onValueChange={(_, date) => onChangeForm({ date })}
-          />
-        )}
+        <DateField value={form.date} onChange={date => onChangeForm({ date })} />
       </View>
       <View style={styles.field}>
         <Text style={styles.label}>Описание</Text>

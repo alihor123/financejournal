@@ -25,7 +25,19 @@
     "plugins": [
       "expo-router",
       "expo-image",
-      "@react-native-community/datetimepicker"
+      [
+        "@react-native-community/datetimepicker",
+        {
+          "android": {
+            "datePicker": {
+              "colorAccent": {
+                "light": "#1677FF",
+                "dark": "#1677FF"
+              }
+            }
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
