@@ -1,26 +1,28 @@
-import { ArrowDown } from '@/assets/icons'
+import DateField from '@/components/DateField'
+import { getStatistics, getDailyStatistics, getCategoryStatistics, type StatisticsPeriod, type StatisticsData } from '@/db/statistics'
+import { dateFormating, dateToString } from '@/helpers'
+import { useIsFocused } from 'expo-router'
+import { useEffect, useRef, useState } from 'react'
 import { useStyles } from '@/hooks/useStyles'
-import { Image } from 'expo-image'
-import { ScrollView, Text, View, useWindowDimensions } from 'react-native'
+import { ActivityIndicator, Pressable, ScrollView, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native'
 import { BarChart } from 'react-native-gifted-charts'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-const days = [
-  { day: '1', income: 0, expense: 1200 },
-  { day: '2', income: 12000, expense: 650 },
-  { day: '3', income: 0, expense: 1800 },
-  { day: '4', income: 4500, expense: 0 },
-  { day: '5', income: 0, expense: 950 },
-  { day: '6', income: 8000, expense: 2400 },
-  { day: '7', income: 0, expense: 1500 }
-]
+//Начальный период статистики — текущий месяц
+function getDefaultPeriod(): StatisticsPeriod {
+  const today = new Date()
+  return {
+    dateFrom: new Date(today.getFullYear(), today.getMonth(), 1),
+    dateTo: new Date(today.getFullYear(), today.getMonth() + 1, 0)
+  }
+}
 
-const categories = [
-  { name: 'Продукты', amount: 4250 },
-  { name: 'Транспорт', amount: 1700 },
-  { name: 'Подписки', amount: 1275 },
-  { name: 'Развлечения', amount: 1275 }
-]
+//Короткие суммы на вертикальной оси графика
+function chartAmountFormating(label: string) {
+  const amount = Number(label)
+  if (amount >= 1000) return `${Math.round(amount / 100) / 10}к`
+  return amount.toLocaleString('ru-RU', { maximumFractionDigits: 2 })
+}
 
 export default function StatisticsScreen() {
   const styles = useStyles(colors => ({
@@ -72,25 +74,6 @@ export default function StatisticsScreen() {
       fontSize: 13,
       color: colors.textSecondary
     },
-    dateButton: {
-      minHeight: 46,
-      paddingHorizontal: 14,
-      borderRadius: 16,
-      backgroundColor: colors.surfacePressed,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 6
-    },
-    dateText: {
-      fontSize: 14,
-      color: colors.text
-    },
-    arrow: {
-      width: 16,
-      height: 16,
-      tintColor: colors.textSecondary
-    },
     total: {
       flex: 1,
       borderRadius: 20,
@@ -112,8 +95,7 @@ export default function StatisticsScreen() {
       padding: 16,
       gap: 18,
       borderRadius: 24,
-      backgroundColor: colors.surfacePressed,
-      overflow: 'hidden'
+      backgroundColor: colors.surfacePressed
     },
     chartHeader: {
       flexDirection: 'row',
@@ -147,6 +129,52 @@ export default function StatisticsScreen() {
     },
     chartRules: {
       color: colors.border
+    },
+    status: {
+      minHeight: 220,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 16,
+      padding: 20
+    },
+    statusText: {
+      fontSize: 15,
+      textAlign: 'center',
+      color: colors.textSecondary
+    },
+    retryButton: {
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 24,
+      backgroundColor: colors.surfaceSoft
+    },
+    retryText: {
+      fontWeight: '600',
+      color: colors.onSurfaceSoft
+    },
+    pressed: {
+      opacity: 0.6
+    },
+    loader: {
+      color: colors.primary
+    },
+    tooltip: {
+      width: 140,
+      padding: 10,
+      gap: 4,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface
+    },
+    tooltipTitle: {
+      fontSize: 11,
+      color: colors.textSecondary
+    },
+    tooltipAmount: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.text
     },
     categories: {
       gap: 18
@@ -188,12 +216,88 @@ export default function StatisticsScreen() {
   }))
 
   const { width } = useWindowDimensions()
-  const income = days.reduce((result, day) => result + day.income, 0)
-  const expense = days.reduce((result, day) => result + day.expense, 0)
+  const isFocused = useIsFocused()
+  const [period, setPeriod] = useState<StatisticsPeriod>(getDefaultPeriod)
+  const [statistics, setStatistics] = useState<StatisticsData>({ totals: { income: 0, expense: 0 }, days: [], categories: [] })
+  const [isLoading, setIsLoading] = useState(true)
+  const [isError, setIsError] = useState(false)
+  const requestRef = useRef(0)
+  const chartScrollRef = useRef(0)
+
+  //Загрузка всех данных статистики с защитой от устаревшего периода
+  async function loadStatistics(selectedPeriod: StatisticsPeriod) {
+    const request = ++requestRef.current
+    chartScrollRef.current = 0
+    setIsLoading(true)
+    setIsError(false)
+
+    try {
+      const [totals, days, categories] = await Promise.all([
+        getStatistics(selectedPeriod),
+        getDailyStatistics(selectedPeriod),
+        getCategoryStatistics(selectedPeriod)
+      ])
+      if (request !== requestRef.current) return
+      setStatistics({ totals, days, categories })
+    }
+    catch {
+      if (request === requestRef.current) setIsError(true)
+    }
+    finally {
+      if (request === requestRef.current) setIsLoading(false)
+    }
+  }
+
+  //Изменение периода с сохранением правильного порядка дат
+  function changePeriod(data: Partial<StatisticsPeriod>) {
+    setPeriod(prev => {
+      const newPeriod = { ...prev, ...data }
+      if (newPeriod.dateTo < newPeriod.dateFrom) newPeriod.dateTo = newPeriod.dateFrom
+      return newPeriod
+    })
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (isFocused) loadStatistics(period)
+
+    return () => {
+      requestRef.current += 1
+    }
+  }, [period, isFocused])
+
+  const { income, expense } = statistics.totals
+  const hasData = income > 0 || expense > 0
+  const days = []
+  const date = new Date(period.dateFrom)
+  const dailyStatistics = Object.fromEntries(statistics.days.map(day => [day.date, day]))
+
+  while (date <= period.dateTo) {
+    const key = dateToString(date)
+    days.push(dailyStatistics[key] || { date: key, income: 0, expense: 0 })
+    date.setDate(date.getDate() + 1)
+  }
+
   const chartData = days.flatMap(day => [
-    { value: day.income, label: day.day, frontColor: styles.income.color, spacing: 3 },
-    { value: day.expense, frontColor: styles.expense.color }
+    { value: day.income / 100, label: day.date.slice(8) + '.' + day.date.slice(5, 7), labelWidth: 32, date: day.date, title: 'Доход', frontColor: styles.income.color, spacing: 3 },
+    { value: day.expense / 100, date: day.date, title: 'Расход', frontColor: styles.expense.color }
   ])
+  const maxValue = chartData.reduce((result, item) => Math.max(result, item.value), 1) * 1.8
+  const chartWidth = Math.min(width, 600) - 116
+
+  //Подсказка остаётся внутри видимой части прокручиваемого графика
+  function renderChartTooltip(item: { date: string, title: string, value: number }, index: number) {
+    const position = chartData.slice(0, index).reduce((result, bar) => result + 10 + (bar.spacing ?? 12), 20) - chartScrollRef.current
+    const left = Math.max(0, Math.min(position, chartWidth - 140))
+
+    return (
+      <View style={[styles.tooltip, { transform: [{ translateX: left - position }] }]}>
+        <Text style={styles.tooltipTitle}>{dateFormating(new Date(`${item.date}T00:00:00`))}</Text>
+        <Text style={styles.tooltipTitle}>{item.title}</Text>
+        <Text style={styles.tooltipAmount}>{item.value.toLocaleString('ru-RU')} ₽</Text>
+      </View>
+    )
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -207,90 +311,107 @@ export default function StatisticsScreen() {
             <View style={styles.row}>
               <View style={styles.dateField}>
                 <Text style={styles.label}>От</Text>
-                <View style={styles.dateButton}>
-                  <Text style={styles.dateText}>01.11.2026</Text>
-                  <Image source={ArrowDown} style={styles.arrow} tintColor={styles.arrow.tintColor} />
-                </View>
+                <DateField value={period.dateFrom} placeholder="Дата начала" onChange={dateFrom => changePeriod({ dateFrom })} />
               </View>
               <View style={styles.dateField}>
                 <Text style={styles.label}>До</Text>
-                <View style={styles.dateButton}>
-                  <Text style={styles.dateText}>07.11.2026</Text>
-                  <Image source={ArrowDown} style={styles.arrow} tintColor={styles.arrow.tintColor} />
+                <DateField value={period.dateTo} minimumDate={period.dateFrom} placeholder="Дата конца" onChange={dateTo => changePeriod({ dateTo })} />
+              </View>
+            </View>
+          </View>
+          {(isLoading || isError) && (
+            <View style={styles.status}>
+              {isLoading && <ActivityIndicator size="large" color={styles.loader.color} />}
+              {!isLoading && isError && (
+                <>
+                  <Text style={styles.statusText}>Не удалось загрузить статистику</Text>
+                  <Pressable onPress={() => loadStatistics(period)} style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
+                    <Text style={styles.retryText}>Повторить</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          )}
+          {!isLoading && !isError && (
+            <>
+              <View style={styles.row}>
+                <View style={styles.total}>
+                  <Text style={styles.label}>Доходы</Text>
+                  <Text style={[styles.totalAmount, styles.income]}>{(income / 100).toLocaleString('ru-RU')} ₽</Text>
+                </View>
+                <View style={styles.total}>
+                  <Text style={styles.label}>Расходы</Text>
+                  <Text style={[styles.totalAmount, styles.expense]}>{(expense / 100).toLocaleString('ru-RU')} ₽</Text>
                 </View>
               </View>
-            </View>
-          </View>
-          <View style={styles.row}>
-            <View style={styles.total}>
-              <Text style={styles.label}>Доходы</Text>
-              <Text style={[styles.totalAmount, styles.income]}>{income.toLocaleString('ru-RU')} ₽</Text>
-            </View>
-            <View style={styles.total}>
-              <Text style={styles.label}>Расходы</Text>
-              <Text style={[styles.totalAmount, styles.expense]}>{expense.toLocaleString('ru-RU')} ₽</Text>
-            </View>
-          </View>
-          <View style={styles.chartCard}>
-            <View style={styles.chartHeader}>
-              <Text style={styles.sectionTitle}>По дням</Text>
-              <Text style={styles.label}>Ноябрь · ₽</Text>
-            </View>
-            <View style={styles.legend}>
-              <View style={styles.legendItem}>
-                <View style={[styles.dot, styles.incomeDot]} />
-                <Text style={styles.label}>Доходы</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.dot, styles.expenseDot]} />
-                <Text style={styles.label}>Расходы</Text>
-              </View>
-            </View>
-            <BarChart
-              data={chartData}
-              width={Math.min(width, 600) - 116}
-              height={190}
-              barWidth={10}
-              spacing={12}
-              initialSpacing={10}
-              endSpacing={10}
-              barBorderTopLeftRadius={4}
-              barBorderTopRightRadius={4}
-              maxValue={12000}
-              noOfSections={4}
-              yAxisLabelWidth={36}
-              yAxisThickness={0}
-              xAxisThickness={0}
-              yAxisTextStyle={styles.chartText}
-              xAxisLabelTextStyle={styles.chartText}
-              rulesColor={styles.chartRules.color}
-              rulesType="dashed"
-              formatYLabel={label => Number(label) === 0 ? '0' : `${Number(label) / 1000}к`}
-              showScrollIndicator={false}
-            />
-          </View>
-          <View style={styles.categories}>
-            <Text style={styles.sectionTitle}>Расходы по категориям</Text>
-            {categories.map(category => {
-              const percent = Math.round(category.amount / expense * 100)
+              {hasData && <View style={styles.chartCard}>
+                <View style={styles.chartHeader}>
+                  <Text style={styles.sectionTitle}>По дням</Text>
+                </View>
+                <View style={styles.legend}>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.dot, styles.incomeDot]} />
+                    <Text style={styles.label}>Доходы</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.dot, styles.expenseDot]} />
+                    <Text style={styles.label}>Расходы</Text>
+                  </View>
+                </View>
+                <BarChart
+                  data={chartData}
+                  width={chartWidth}
+                  height={190}
+                  barWidth={10}
+                  spacing={12}
+                  initialSpacing={10}
+                  endSpacing={10}
+                  barBorderTopLeftRadius={4}
+                  barBorderTopRightRadius={4}
+                  maxValue={maxValue}
+                  noOfSections={4}
+                  yAxisLabelWidth={36}
+                  yAxisThickness={0}
+                  xAxisThickness={0}
+                  yAxisTextStyle={styles.chartText}
+                  xAxisLabelTextStyle={styles.chartText}
+                  rulesColor={styles.chartRules.color}
+                  rulesType="dashed"
+                  formatYLabel={chartAmountFormating}
+                  key={`${dateToString(period.dateFrom)}-${dateToString(period.dateTo)}`}
+                  activeOpacity={1}
+                  onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
+                    chartScrollRef.current = event.nativeEvent.contentOffset.x
+                  }}
+                  renderTooltip={renderChartTooltip}
+                  showScrollIndicator={false}
+                />
+              </View>}
+              {!hasData && <View style={styles.status}><Text style={styles.statusText}>Нет данных за выбранный период</Text></View>}
+              {expense > 0 && <View style={styles.categories}>
+                <Text style={styles.sectionTitle}>Расходы по категориям</Text>
+                {statistics.categories.map(category => {
+                  const percent = Math.round(category.amount / expense * 100)
 
-              return (
-                <View key={category.name} style={styles.category}>
-                  <View style={styles.categoryHeader}>
-                    <Text style={styles.categoryName}>{category.name}</Text>
-                    <Text style={styles.categoryAmount}>{category.amount.toLocaleString('ru-RU')} ₽</Text>
-                  </View>
-                  <View style={styles.track}>
-                    <View style={[styles.progress, { width: `${percent}%` }]} />
-                  </View>
-                  <View style={styles.categoryFooter}>
-                    <Text style={styles.label}>От всех расходов</Text>
-                    <Text style={styles.label}>{percent}%</Text>
-                  </View>
-                </View>
-              )
-            })}
-          </View>
+                  return (
+                    <View key={category.name} style={styles.category}>
+                      <View style={styles.categoryHeader}>
+                        <Text style={styles.categoryName}>{category.name}</Text>
+                        <Text style={styles.categoryAmount}>{(category.amount / 100).toLocaleString('ru-RU')} ₽</Text>
+                      </View>
+                      <View style={styles.track}>
+                        <View style={[styles.progress, { width: `${percent}%` }]} />
+                      </View>
+                      <View style={styles.categoryFooter}>
+                        <Text style={styles.label}>От всех расходов</Text>
+                        <Text style={styles.label}>{percent}%</Text>
+                      </View>
+                    </View>
+                  )
+                })}
+              </View>}
+            </>
+          )}
         </ScrollView>
       </View>
     </SafeAreaView>
