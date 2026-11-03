@@ -11,7 +11,7 @@ type Database = ExpoSQLiteDatabase<typeof schema>
 export const pageSize = 20
 
 //Получение страницы с фильтрацией по категории и включённому периоду
-function selectOperations(db: Database, filters: FilterForm, offset: number) {
+function getOperationConditions(filters: FilterForm) {
   const conditions = []
 
   if (filters.category) conditions.push(eq(operationsTable.category, filters.category))
@@ -23,8 +23,13 @@ function selectOperations(db: Database, filters: FilterForm, offset: number) {
     conditions.push(lt(operationsTable.date, nextDay))
   }
 
+  return and(...conditions)
+}
+
+//Чтение одной страницы журнала
+function selectOperations(db: Database, filters: FilterForm, offset: number) {
   return db.select().from(operationsTable)
-    .where(and(...conditions))
+    .where(getOperationConditions(filters))
     .orderBy(desc(operationsTable.date), desc(operationsTable.id))
     .limit(pageSize).offset(offset).all()
 }
@@ -54,14 +59,22 @@ export async function getOperations(filters: FilterForm, offset: number) {
   return selectOperations(db, filters, offset)
 }
 
+//Все записи по применённым фильтрам для экспорта без пагинации
+export async function getOperationsForExport(filters: FilterForm) {
+  const db = await openDatabase()
+  return db.select().from(operationsTable).where(getOperationConditions(filters))
+    .orderBy(desc(operationsTable.date), desc(operationsTable.id)).all()
+}
+
 //Сохранение новой операции с расчётом дельты изменения баланса
 export async function insertOperation(operation: Operation) {
   const db = await openDatabase()
 
   db.transaction(tx => {
-    const data = { ...operation }
+    const data: Operation = { ...operation, targetBalance: null }
 
     if (data.type === 'adjustment') {
+      data.targetBalance = data.amount
       data.amount -= selectTotals(tx).balance
       data.category = 'Изменение баланса'
     }
@@ -78,11 +91,18 @@ export async function updateOperation(operation: Operation) {
     const previousOperation = tx.select().from(operationsTable).where(eq(operationsTable.id, operation.id)).get()
     if (!previousOperation) throw new Error('Операция не найдена')
 
-    const data = { ...operation }
+    const data: Operation = { ...operation, targetBalance: null }
 
     if (data.type === 'adjustment') {
       const previousAmount = previousOperation.type === 'expense' ? -previousOperation.amount : previousOperation.amount
-      data.amount -= selectTotals(tx).balance - previousAmount
+      let balanceBefore = selectTotals(tx).balance - previousAmount
+
+      if (previousOperation.type === 'adjustment' && previousOperation.targetBalance !== null) {
+        balanceBefore = previousOperation.targetBalance - previousOperation.amount
+      }
+
+      data.targetBalance = data.amount
+      data.amount -= balanceBefore
       data.category = 'Изменение баланса'
     }
 

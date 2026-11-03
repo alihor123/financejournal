@@ -8,6 +8,7 @@ export type Operation = {
   id: string
   type: 'income' | 'expense' | 'adjustment'
   amount: number
+  targetBalance?: number | null
   category: string
   date: Date
   description: string

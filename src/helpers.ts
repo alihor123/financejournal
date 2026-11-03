@@ -1,3 +1,4 @@
+import type { Operation } from '@/components/OperationCard'
 import { ToastAndroid } from 'react-native'
 
 //Дата в формате календаря YYYY-MM-DD
@@ -20,4 +21,25 @@ export function dateFormating(date: Date) {
 
 export function showMessage(message: string) {
   ToastAndroid.show(message, ToastAndroid.SHORT)
+}
+
+export function createCsv(operations: Operation[]) {
+  const types = { income: 'Доход', expense: 'Расход', adjustment: 'Изменение баланса' }
+  const rows = [
+    ['ID', 'Дата', 'Тип', 'Категория', 'Сумма', 'Описание'],
+    ...operations.map(operation => {
+      const amount = operation.type === 'expense' ? -operation.amount : operation.amount
+
+      return [
+        operation.id,
+        dateToString(operation.date),
+        types[operation.type],
+        operation.category,
+        (amount / 100).toFixed(2).replace('.', ','),
+        operation.description
+      ]
+    })
+  ]
+
+  return '\uFEFF' + rows.map(row => row.map(value => `"${value.replace(/"/g, '""')}"`).join(';')).join('\r\n')
 }

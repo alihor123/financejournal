@@ -1,14 +1,16 @@
 import { OperationsContext } from '@/context/OperationsContext'
-import { Filter, Plus } from '@/assets/icons'
+import { Download, Filter, Plus } from '@/assets/icons'
 import { OperationCard, type Operation } from '@/components/OperationCard'
 import OperationModal, { type ModalOpen, type OperationForm } from '@/components/OperationModal/index'
 import { BlurTargetView } from 'expo-blur'
 import { randomUUID } from 'expo-crypto'
 import { Image } from 'expo-image'
+import { File, Paths } from 'expo-file-system'
+import * as Sharing from 'expo-sharing'
 import Filters, { type FilterForm } from '@/components/Filters'
 import { useStyles } from '@/hooks/useStyles'
-import { getJournal, getOperations, insertOperation, updateOperation, removeOperation, pageSize } from '@/db/operations'
-import { showMessage } from '@/helpers'
+import { getJournal, getOperations, insertOperation, updateOperation, removeOperation, getOperationsForExport, pageSize } from '@/db/operations'
+import { createCsv, showMessage } from '@/helpers'
 import { useContext, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, Text, View, type ViewInstance } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -51,6 +53,10 @@ export default function Index() {
       left: 0,
       right: 0,
       zIndex: 5
+    },
+    headerActions: {
+      flexDirection: 'row',
+      gap: 4
     },
     filterButton: {
       width: 44,
@@ -173,12 +179,14 @@ export default function Index() {
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadError, setIsLoadError] = useState(false)
   const [isNextPageLoading, setIsNextPageLoading] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const offsetRef = useRef(0)
   const requestRef = useRef(0)
   const loadingRef = useRef(false)
   const savingRef = useRef(false)
+  const exportingRef = useRef(false)
   const blurTargetRef = useRef<ViewInstance | null>(null)
 
   //Загрузка первой страницы и итогов по всему журналу
@@ -284,10 +292,12 @@ export default function Index() {
 
   //Открытие формы с данными выбранной операции
   function openEditModal(operation: Operation) {
+    const amount = operation.type === 'adjustment' ? operation.targetBalance : operation.amount
+
     setForm({
       type: operation.type,
       category: operation.category,
-      amount: String((operation.type === 'adjustment' ? totals.balance : operation.amount) / 100),
+      amount: amount === null || amount === undefined ? '' : String(amount / 100),
       date: operation.date,
       description: operation.description
     })
@@ -308,6 +318,38 @@ export default function Index() {
   function closeModal() {
     setModalOpen(null)
     setForm(getEmptyForm())
+  }
+
+  //Экспорт всех подходящих операций через системное меню отправки файла
+  async function exportOperations() {
+    if (exportingRef.current) return
+    exportingRef.current = true
+    setIsExporting(true)
+
+    try {
+      if (!await Sharing.isAvailableAsync()) {
+        showMessage('Отправка файлов недоступна')
+        return
+      }
+
+      const data = await getOperationsForExport(filters)
+      if (data.length === 0) {
+        showMessage('Нет операций для экспорта')
+        return
+      }
+
+      const file = new File(Paths.cache, `financejournal-${Date.now()}.csv`)
+      file.create()
+      await file.write(createCsv(data))
+      await Sharing.shareAsync(file.uri, { mimeType: 'text/csv', UTI: 'public.comma-separated-values-text', dialogTitle: 'Экспорт журнала' })
+    }
+    catch {
+      showMessage('Не удалось экспортировать журнал. Попробуйте позже')
+    }
+    finally {
+      exportingRef.current = false
+      setIsExporting(false)
+    }
   }
 
   //Сохранение новой операции и обновление первой страницы
@@ -381,13 +423,22 @@ export default function Index() {
             {isFiltersOpen && <Pressable style={styles.filtersBackdrop} onPress={() => setIsFiltersOpen(false)} />}
             <View style={styles.header}>
               <Text style={styles.title}>Журнал</Text>
-              <Pressable
-                onPress={openFilters}
-                disabled={isSaving}
-                style={({ pressed }) => [styles.filterButton, pressed && styles.buttonPressed]}
-              >
-                <Image source={Filter} style={styles.filterIcon} tintColor={styles.filterIcon.tintColor} />
-              </Pressable>
+              <View style={styles.headerActions}>
+                <Pressable
+                  onPress={exportOperations}
+                  disabled={isLoading || isLoadError || isSaving || isExporting}
+                  style={({ pressed }) => [styles.filterButton, pressed && styles.buttonPressed]}
+                >
+                  <Image source={Download} style={styles.filterIcon} tintColor={styles.filterIcon.tintColor} />
+                </Pressable>
+                <Pressable
+                  onPress={openFilters}
+                  disabled={isSaving}
+                  style={({ pressed }) => [styles.filterButton, pressed && styles.buttonPressed]}
+                >
+                  <Image source={Filter} style={styles.filterIcon} tintColor={styles.filterIcon.tintColor} />
+                </Pressable>
+              </View>
               <Filters
                 isOpen={isFiltersOpen}
                 form={filterForm}

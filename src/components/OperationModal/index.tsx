@@ -341,6 +341,9 @@ export default function OperationModal({ modalOpen, isSaving, form, balance, blu
                   <Image source={Close} style={styles.closeIcon} tintColor={styles.closeIcon.tintColor} />
                 </Pressable>
               </View>
+              {modalOpen?.type === 'edit' && modalOpen.operation.type === 'adjustment' && modalOpen.operation.targetBalance == null && (
+                <Text style={styles.message}>Исходный баланс этой старой записи не сохранён. Введённая сумма установит баланс заново.</Text>
+              )}
               {getModalContent()}
             </ScrollView>
           </View>
